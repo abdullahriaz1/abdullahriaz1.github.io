@@ -9,9 +9,6 @@ function Footer() {
       <Link to="https://github.com/abdullahriaz1">
       <button className="button">GitHub</button>
       </Link>
-      <Link to="https://leetcode.com/ariaz988/">
-      <button className="button">LeetCode</button>
-      </Link>
     </div>
   )
 }

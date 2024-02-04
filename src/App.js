@@ -19,13 +19,8 @@ function App() {
   return (
     <Router>
       <div className='App'>
-        <Header />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/experience" element={<Experience />} />
-          <Route path="/about" element={<About />} />
-        </Routes>
+        
+        <Home />
         <Footer />
       </div>
     </Router>

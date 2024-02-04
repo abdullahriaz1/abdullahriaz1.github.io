@@ -1,7 +1,17 @@
+@import url("https://fonts.googleapis.com/css?family=Montserrat:700|Open+Sans&display=swap");
+html {
+  scroll-behavior: smooth;
+}
+body {
+  font-family:"Open Sans";
+  background-color: rgb(0, 51, 140);
+
+}
 .App {
-  background-color: #180851;
+  background-color: rgb(0, 51, 140);
   min-height: 100vh;
   font-size: calc(10px + 2vmin);
+  font-family: "Open Sans";
   color: white;
   padding: 20px;
 }
@@ -15,6 +25,14 @@
   gap: 5px;
   text-align: center;
   padding-top: 20px;
+
+  z-index: 1;
+  position:fixed;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  color: #fff;
+  padding: 10px;
 }
 .header {
   display: flex;
@@ -23,16 +41,26 @@
   align-items: center;
   gap: 5px;
   text-align: center;
-  padding-bottom: 20px;
+  padding-bottom: 5px;
+  z-index: 1;
+  position:fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  color: #fff;
+  padding: 10px;
+  
 }
 
 .button {
-  background-color: #b000fc;
+  background-color: #6babff;
   color: white;
-  border-radius: 3px;
-  transition-duration: 0.4s;
-  border: 1px solid #ffffff;
-  padding: 3px 5px;
+  border-radius: 12px;
+  transition-duration: 0.3s;
+  border: 2px solid #ffffff;
+  padding: 2px 14px;
+  font-family: "Open Sans";
+  font-size: calc(5px + 2vmin);
 
 }
 
@@ -40,5 +68,119 @@
   background-color: #ffffff;
   color: #282c34;
   cursor: grab;
-  box-shadow: 0 5px 16px 0 rgba(0, 149, 255, 0.603), 0 10px 25px 0 rgb(140, 0, 255);
+  box-shadow: 0 5px 16px 0 rgba(0, 149, 255, 0.603), 0 10px 25px 0 rgb(0, 157, 255);
+}
+
+.grow {
+  padding: 10px 5px;
+}
+
+.grow img:hover{
+  -webkit-transform: scale(1.2);
+  -ms-transform: scale(1.2);
+  transform: scale(1.2);
+  transition: 0.05s ease;
+  }
+
+.border img {
+  
+  transition: 1s ease;
+  }
+  
+  .border img:hover{
+  box-shadow: 0 0 1000px 10px rgb(195, 232, 255);
+  transition: 1s ease;
+  }
+
+.home {
+  padding: 5px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  
+}
+
+.home-img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: auto;
+  width: 50%;
+  position: relative;
+
+
+}
+.home-intro-text {
+  width: 50%;
+  margin: auto;
+  
+
+}
+
+.link {
+  color: rgb(0, 155, 251);
+}
+
+/* visited link */
+.link:visited {
+  color: rgb(195, 232, 255);
+}
+
+/* mouse over link */
+.link:hover {
+  color: rgb(255, 255, 255);
+}
+
+/* selected link */
+.link:active {
+  color: blue;
+}
+
+.projects {
+  display: flex;
+  flex-direction: row;
+  padding: 30px;
+  flex-wrap: wrap;
+  row-gap: 1px;
+  gap: 2px;
+  justify-content: center;
+  
+}
+
+.project {
+  padding: 2%;
+  background-color:#00c3ff3f;
+  width:300px;
+}
+
+.project {
+  
+  transition: 1s ease;
+  }
+  
+  .project:hover{
+  box-shadow: 0 0 1000px 10px rgb(195, 232, 255);
+  transition: 1s ease;
+  }
+
+.contact-img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: auto;
+  width: 40%;
+  position: relative;
+
+}
+
+.contact-sections {
+  display: flex;
+  flex-direction: row;
+  gap: '30px';
+  text-align: 'left';
+  padding-bottom: 40px;
+}
+
+.get-in-touch {
+  width: 50%;
+  margin: auto;
 }
