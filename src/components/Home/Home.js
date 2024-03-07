@@ -18,34 +18,31 @@ function Home() {
         <div class="home-intro-text">
           <h1>Hello, I'm Abdullah Riaz!</h1>
           <p>
-              A computer engineering student at UCSC with a passion for the cutting edge. 
+          I'm a third year Computer Engineering student at the University of California, Santa Cruz.
           </p>
         </div>
 
-        <div class="home-img">
-          <div class="grow" >
-            <div class="border">
-              <img src={picture} alt="Me at UCSC " 
-                width="90%" height=""/>
-            </div>
-          </div>
-        </div>
         
           
       </div>
+      <hr></hr>
+      <Projects></Projects>
+      <hr></hr>
       <div style={{display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        textAlign: 'center', paddingTop: '100px'}}>
+        textAlign: 'left', 
+        paddingTop: '100px',
+        paddingBottom: '100px'}}>
         <h2>Skills</h2>
         <p>
-        Languages: C, C++, Python, Java, JavaScript, HTML, CSS, SQL<br/>
-        Tools/Frameworks: React.js, Node.js, Flask, Java Spring, Linux, Git, TCP/IP, HTTP/S, REST
+        Languages: Python, C, C++, Java, JavaScript, HTML/CSS, SQL<br/>
+        Frameworks: React, Node.js, Flask, Java Spring, WordPress, Linux, Scrum, Agile<br/>
+        Developer Tools: Git, Docker, VS Code, Visual Studio Code, IntelliJ IDEA<br/>
+        Libraries: Pandas, NumPy, Matplotlib, NetworkX<br/>
         </p>
       </div>
-      <hr></hr>
-      <Projects></Projects>
       <hr></hr>
       <Contact></Contact>
     </div>
