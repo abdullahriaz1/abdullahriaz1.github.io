@@ -11,9 +11,13 @@ function Header() {
       <a href="/#projects">
         <button className="button">Projects</button>
       </a>
+      <a href='/#skills'>
+        <button className='button'>Skills</button>
+      </a>
       <a href="/#contact">
         <button className="button">Contact</button>
       </a>
+      
     </div>
     
   )

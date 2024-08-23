@@ -1,5 +1,6 @@
-import React from 'react'
-import {Link} from 'react-router-dom'
+import React from 'react';
+import { Link } from 'react-router-dom';
+
 function Projects() {
   return (
     <div id="projects">
@@ -16,82 +17,99 @@ function Projects() {
       </div>
       
       <div className="projects">
+        {/* New Projects */}
         <div className="project">
-        <Link className="link" to="https://bpb-us-e2.wpmucdn.com/faculty.sites.uci.edu/dist/8/913/files/2023/01/symposium22-Jake-Smith-GraphCookieSyncDetection.pdf" style={{ textDecoration: 'none' }}>
-        Research @ UC Davis</Link> 
-        <br/>
-        <br/>
-          Researched data-sharing and data privacy through 
-          analysis of web crawls on the 
-          top 100K websites and cataloging request chains.
-          Results categorized behaviors associated with 
-          Cookie Syncing which was used to develop an algorithm for Cookie Sync 
-          Detection.
+          <Link className="link" to="https://github.com/Samintha-C/CSE144-G9" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            DermaAI
+          </Link>
+          <br />
+          Skin ailment classification with 82% accuracy using Vision Transformers and CNN, integrated into a web app for diagnoses.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/Agora-Pixel" style={{ textDecoration: 'none' }}>
-        Flux Analytics</Link> 
-        <br/>
-        <br/>
-              Suite of website data analytics tools for website owners.
+          <Link className="link" to="https://github.com/abdullahriaz1/trading-engine" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Trading Engine
+          </Link>
+          <br />
+          Multi-threaded order matching engine for simulated financial markets, built with C++ for parallel processing.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/KamalShamsi/Smart-Budget" style={{ textDecoration: 'none' }}>
-        Smart Budget Web App</Link> 
-        <br/>
-        <br/>
-              A budgeting dashboard for the savers.
+          <Link className="link" to="https://github.com/dhsieh4/CSE138_Assignment4" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            ScaleKVS
+          </Link>
+          <br />
+          Replicated key-value store with sharding for improved fault tolerance and throughput, featuring a robust API.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/abdullahriaz1/http-file-server" style={{ textDecoration: 'none' }}>
-        Multithreaded HTTP File Server</Link> 
-        <br/>
-        <br/>
-            An HTTP File Server in 
-            C, enabling efficient handling of GET/PUT requests.
+          <Link className="link" to="https://github.com/Agora-Pixel" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Flux Analytics
+          </Link>
+          <br />
+          Full-stack analytics platform for e-commerce, with data collection, processing, and visualization using React.js and Java Spring.
+        </div>
+        
+        {/* Existing Projects */}
+        
+        <div className="project">
+          <Link className="link" to="https://bpb-us-e2.wpmucdn.com/faculty.sites.uci.edu/dist/8/913/files/2023/01/symposium22-Jake-Smith-GraphCookieSyncDetection.pdf" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Research @ UC Davis
+          </Link>
+          <br />
+          Researched algorithms for Cookie Syncing Detection to enhance data privacy.
+        </div>
+        
+        <div className="project">
+          <Link className="link" to="https://github.com/KamalShamsi/Smart-Budget" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Smart Budget Web App
+          </Link>
+          <br />
+          Budgeting dashboard designed for personal finance management.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/kalinsley/Versify" style={{ textDecoration: 'none' }}>
-        Versify</Link>
-        <br/>
-        <br/>
-              IOS app that connects music-listeners in similar 
-              geographic regions, in this case UCSC colleges, 
-              through the curation of community playlists. 
+          <Link className="link" to="https://github.com/abdullahriaz1/http-file-server" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Multithreaded HTTP File Server
+          </Link>
+          <br />
+          Efficient C-based HTTP file server supporting concurrent GET/PUT requests.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/abdullahriaz1/stocks" style={{ textDecoration: 'none' }}>
-        Stock Price Manager</Link>
-        <br/>
-        <br/>
-              CLI for tracking stock information so that 
-              users can manage their investments.
+          <Link className="link" to="https://github.com/kalinsley/Versify" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Versify
+          </Link>
+          <br />
+          iOS app for connecting music enthusiasts through community playlists.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/abdullahriaz1/nqueens" style={{ textDecoration: 'none' }}>
-        N-Queens Problem</Link>
-        <br/>
-        <br/>
-              Implementation of algorithm to solve N-Queens Problem with preplaced queens and no recursion.
+          <Link className="link" to="https://github.com/abdullahriaz1/stocks" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Stock Price Manager
+          </Link>
+          <br />
+          CLI tool for tracking and managing stock investments.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/abdullahriaz1/six-degrees-of-kevin-bacon" style={{ textDecoration: 'none' }}>
-        Six Degrees of Kevin Bacon Problem</Link>
-        <br/>
-        <br/>
-              Created C++ algorithm to find shortest path of connections between Hollywood actors where a connection exists if two actors are in the same movie.
+          <Link className="link" to="https://github.com/abdullahriaz1/nqueens" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            N-Queens Problem
+          </Link>
+          <br />
+          Algorithm for solving the N-Queens problem without recursion.
         </div>
         <div className="project">
-        <Link className="link" to="https://github.com/abdullahriaz1/cache-simulator" style={{ textDecoration: 'none' }}>
-        Cache Simulator</Link>
-        <br/>
-        <br/>
-              Developed a cache simulator in C that supports FIFO, LRU, and clock eviction policies.
+          <Link className="link" to="https://github.com/abdullahriaz1/six-degrees-of-kevin-bacon" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Shortest Path in Social Network
+          </Link>
+          <br />
+          C++ algorithm for finding the shortest path between actors in a movie network.
         </div>
+        <div className="project">
+          <Link className="link" to="https://github.com/abdullahriaz1/cache-simulator" style={{ textDecoration: 'none' }} target="_blank" rel="noopener noreferrer">
+            Cache Simulator
+          </Link>
+          <br />
+          C-based cache simulator supporting FIFO, LRU, and clock eviction policies.
+        </div>
+        
       </div>
-      
     </div>
-  )
+  );
 }
 
-export default Projects
+export default Projects;

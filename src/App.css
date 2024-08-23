@@ -53,9 +53,9 @@ body {
 }
 
 .button {
-  background-color: #6babff;
+  background-color: #5997e8;
   color: white;
-  border-radius: 12px;
+  border-radius: 1px;
   transition-duration: 0.3s;
   border: 2px solid #ffffff;
   padding: 2px 14px;
@@ -185,4 +185,109 @@ body {
   position: fixed;
   margin: auto;
 
+}
+
+
+.skills-container {
+  display: flex;
+  justify-content: center; /* Centers the entire table horizontally */
+  margin: 0 auto; /* Ensures the container itself is centered */
+  padding-top: '100px';
+  padding-bottom: '100px';
+  align-items: center;
+  justify-content: center;
+}
+
+.skills {
+  display: table;
+  border-collapse: collapse; /* Ensures that borders collapse into single lines */
+  width: auto; /* Adjusts the table width automatically based on content */
+}
+
+.skills-row {
+  display: table-row;
+
+}
+
+.skills-col {
+  display: table-cell;
+
+  padding: 5px 20px; /* Padding inside each cell */
+  text-align: center; /* Centers text horizontally */
+  vertical-align: middle; /* Centers text vertically */
+}
+
+/* Set a constant width for the left column */
+.skills-col.left {
+  width: 20%px; /* Adjust this width as needed */
+  text-align: right;
+}
+
+/* The right column will take the remaining space */
+.skills-col.right {
+  width: auto; /* Takes up the remaining space */
+  text-align: left;
+}
+
+.contact-btn {
+  background-color: rgb(0, 51, 140);
+  border-radius: 12px;
+  border: 3px solid rgb(0, 51, 140);
+  transition-duration: 0.3s;
+  box-shadow: 0 5px 30px 0 rgb(0, 43, 116), 0 5px 40px 0 rgb(0, 30, 82);
+
+
+}
+
+.contact-btn:hover {
+  background-color: rgb(255, 255, 255);
+  border: 3px solid #ffffff;
+  color: #282c34;
+  cursor: grab;
+  box-shadow: 0 0px 30px 0 rgba(0, 149, 255, 0.603), 0 10px 25px 0 rgb(0, 157, 255);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for Webkit browsers */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ffffff; /* Change to your preferred color */
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* Change to your preferred color */
+  border-radius: 3px;
+}
+
+.contact-icon {
+  color: rgb(255, 255, 255);
+}
+
+.contact-icon-linkedin {
+  color: rgb(255, 255, 255);
+}
+
+.contact-icon-email {
+  color: rgb(255, 255, 255);
+}
+
+
+.contact-btn:hover .contact-icon {
+  color: rgb(0, 0, 0);
+}
+
+.contact-btn:hover .contact-icon-linkedin {
+  color: #0077B5;
+}
+
+.contact-btn:hover .contact-icon-email {
+  color: rgb(255, 0, 0);
 }
