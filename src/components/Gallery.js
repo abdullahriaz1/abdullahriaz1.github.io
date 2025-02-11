@@ -1,3 +1,4 @@
+// src/components/Gallery.js
 import React, { useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -16,9 +17,7 @@ const radius = 70;
  *
  * Each image is rendered on a rectangular prism whose dimensions are computed
  * from the image’s natural size. The larger side is scaled to 20 units with a constant depth of 3.
- * Only the front face (assumed to be the positive Z face) is textured,
- * while the other faces use a neutral gray.
- * The entire prism rotates each frame to face the camera.
+ * Only the front face (assumed to be the positive Z face) is textured.
  */
 function ImagePrism({ url, position }) {
   const { camera } = useThree();
@@ -39,9 +38,9 @@ function ImagePrism({ url, position }) {
     }
   }, [texture]);
 
-  const depth = 3; // increased constant depth
+  const depth = 3; // constant depth
 
-  // Create materials: only the front face (index 4, positive Z) gets the texture.
+  // Create materials: only the front face (index 4) gets the texture.
   const materials = [
     new THREE.MeshBasicMaterial({ color: '#777' }), // Right
     new THREE.MeshBasicMaterial({ color: '#777' }), // Left
@@ -51,7 +50,7 @@ function ImagePrism({ url, position }) {
     new THREE.MeshBasicMaterial({ color: '#777' }), // Back
   ];
 
-  // Slowly rotate the entire prism so that its front faces the camera.
+  // Rotate the prism so its front always faces the camera.
   useFrame(() => {
     if (prismRef.current) {
       prismRef.current.lookAt(camera.position);
@@ -92,28 +91,49 @@ function GalleryScene({ groupRef }) {
 }
 
 /**
- * FocusedBox
+ * FocusedEllipsoid
  *
- * When an image is "focused," this component displays a huge skybox
- * (300×300×300) with that image as its interior texture.
- * A spring animation creates a smooth zoom‑in effect.
+ * Creates an ellipsoidal (egg‑shaped) sky by using a sphere geometry that is scaled
+ * non‑uniformly along the Y‑axis. The texture is set to repeat twice horizontally so that
+ * the image appears twice around the sphere. The material’s side is set to THREE.BackSide
+ * so that the texture is visible on the inside.
  */
-function FocusedBox({ focusedImage }) {
+function FocusedEllipsoid({ focusedImage }) {
   const texture = useTexture(focusedImage);
+
+  // Set the texture to repeat twice horizontally.
+  useEffect(() => {
+    if (texture) {
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.repeat.set(2, 1); // Repeat the image twice on the horizontal (U) axis.
+      texture.needsUpdate = true;
+    }
+  }, [texture]);
+
   const [spring, api] = useSpring(() => ({
-    scale: 0.8,
+    scale: 0.8, // starting uniform scale
     config: { mass: 1, tension: 170, friction: 26 },
   }));
 
   useEffect(() => {
+    // Animate to a uniform scale of 1.
     api.start({ scale: 1 });
   }, [focusedImage, api]);
 
   return (
-    <a.mesh scale={spring.scale}>
-      <boxGeometry args={[300, 300, 300]} />
-      <meshBasicMaterial map={texture} side={THREE.BackSide} />
-    </a.mesh>
+    // The animated group scales uniformly using the spring value.
+    <a.group scale={spring.scale}>
+      {/*
+        The inner mesh is scaled non‑uniformly:
+        - X and Z remain 1 (full size),
+        - Y is reduced (0.7) to create an ovular (egg‑shaped) effect.
+      */}
+      <mesh scale={[1, 0.7, 1]}>
+        {/* Sphere geometry with a radius of 300 for a large skybox. */}
+        <sphereGeometry args={[300, 64, 64]} />
+        <meshBasicMaterial map={texture} side={THREE.BackSide} />
+      </mesh>
+    </a.group>
   );
 }
 
@@ -121,12 +141,14 @@ function FocusedBox({ focusedImage }) {
  * AutoFocus
  *
  * Projects each image's position into screen space and finds the one closest to the center.
- * If the closest image is within ~0.3 NDC units, that image is focused.
- * Otherwise, the last focused image remains.
+ * The focused image only changes if a new image is in focus for more than 0.8 seconds.
  */
 function AutoFocus({ groupRef }) {
   const { camera } = useThree();
   const [focusedImage, setFocusedImage] = useState(null);
+  // candidateRef holds the candidate image and the time when it first became the candidate.
+  const candidateRef = useRef({ candidate: null, start: 0 });
+  const holdDuration = 800; // milliseconds
 
   useFrame(() => {
     if (!groupRef.current) return;
@@ -146,22 +168,34 @@ function AutoFocus({ groupRef }) {
         bestIndex = i;
       }
     }
+
     if (bestDistance < 0.3) {
-      const newFocus = imageList[bestIndex];
-      if (newFocus !== focusedImage) {
-        setFocusedImage(newFocus);
+      const candidate = imageList[bestIndex];
+      // If the candidate is the same, check if it has been held long enough.
+      if (candidateRef.current.candidate === candidate) {
+        if (Date.now() - candidateRef.current.start > holdDuration) {
+          if (candidate !== focusedImage) {
+            setFocusedImage(candidate);
+          }
+        }
+      } else {
+        // A new candidate: reset the timer.
+        candidateRef.current = { candidate, start: Date.now() };
       }
+    } else {
+      // Reset if no candidate is in focus.
+      candidateRef.current = { candidate: null, start: 0 };
     }
   });
 
-  return focusedImage ? <FocusedBox focusedImage={focusedImage} /> : null;
+  return focusedImage ? <FocusedEllipsoid focusedImage={focusedImage} /> : null;
 }
 
 /**
  * ClampControls
  *
- * Smoothly clamps the OrbitControls target and the camera's position so you remain inside the skybox.
- * Clamping is applied to a range of about –140 to 140.
+ * Smoothly clamps the OrbitControls target and the camera's position so that they remain
+ * within a certain range, ensuring the view stays inside the sky.
  */
 function ClampControls({ controlsRef }) {
   const { camera } = useThree();
@@ -192,8 +226,8 @@ function ClampControls({ controlsRef }) {
 /**
  * Gallery
  *
- * Sets up the 3D scene with the rotating gallery of image prisms, auto‑focus logic,
- * and OrbitControls that simulate a first-person-like view while remaining third-person.
+ * Sets up the 3D scene with the rotating gallery of image prisms,
+ * auto‑focus logic, and OrbitControls that simulate a first‑person-like view.
  */
 function Gallery() {
   const groupRef = useRef();
@@ -207,8 +241,6 @@ function Gallery() {
       <AutoFocus groupRef={groupRef} />
       <OrbitControls
         ref={controlsRef}
-        // Set the pivot (target) very close to the camera to simulate a first-person appearance.
-        // With the camera at [0, 5, 15], this target is [0, 5, 14.8] – only 0.2 units in front.
         target={[0, 5, 14.9]}
         enableZoom={true}
         zoomSpeed={2.5}

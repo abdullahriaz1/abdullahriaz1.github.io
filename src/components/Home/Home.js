@@ -17,16 +17,22 @@ function Home() {
         gap: '30px',
         textAlign: 'center'
       }}>
-        <div class="home-intro-text">
+        <div className="home-intro-text">
           <h1>Hello, I'm Abdullah Riaz!</h1>
           <p>
-          Software Engineer
-          <br/>
-          Computer Engineering B.S. - UC Santa Cruz, Dec. 2024
+            Software Engineer
+            <br/>
+            Computer Engineering B.S. - UC Santa Cruz, Dec. 2024
           </p>
         </div>
+
       </div>
-      <Gallery></Gallery>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '90%' }}>
+          <Gallery />
+        </div>
+      </div>
+
       <hr></hr>
       <Projects></Projects>
       <hr></hr>
