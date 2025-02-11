@@ -1,40 +1,54 @@
-import React from 'react'
+import React from 'react';
 
 function Skills() {
+  const skillsData = {
+    skills: [
+      {
+        category: "Languages",
+        items: ["Python", "C", "C++", "Java", "JavaScript", "HTML", "CSS", "SQL"]
+      },
+      {
+        category: "Frameworks",
+        items: ["React.js", "Node.js", "Express.js", "Flask", "Java Spring"]
+      },
+      {
+        category: "Developer Tools",
+        items: ["Git", "GitHub", "Linux", "Docker"]
+      },
+      {
+        category: "Libraries",
+        items: ["PyTorch", "Pandas", "NumPy"]
+      }
+    ]
+  };
+
   return (
-    <div id='skills' style={{display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      textAlign: 'left', 
-      paddingTop: '80px',
-      paddingBottom: '100px'}}>
+    <div
+      id="skills"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'left',
+        paddingTop: '80px',
+        paddingBottom: '100px',
+      }}
+    >
       <h2>Skills</h2>
 
       <div className="skills-container">
-      <div className="skills">
-        <div className="skills-row">
-          <div className="skills-col left">Languages</div>
-          <div className="skills-col right">Python, C, C++, Java, JavaScript, HTML, CSS, SQL</div>
-        </div>
-        <div className="skills-row">
-          <div className="skills-col left">Frameworks</div>
-          <div className="skills-col right">React.js, Node.js, Express.js, Flask, Java Spring, Scrum, Agile</div>
-        </div>
-        <div className="skills-row">
-          <div className="skills-col left">Developer Tools</div>
-          <div className="skills-col right">Git, GitHub, Linux, Docker</div>
-        </div>
-        <div className="skills-row">
-          <div className="skills-col left">Libraries</div>
-          <div className="skills-col right">PyTorch, Transformers, Pandas, NumPy, Matplotlib, C++ Threads</div>
+        <div className="skills">
+          {skillsData.skills.map((skill, index) => (
+            <div className="skills-row" key={index}>
+              <div className="skills-col left">{skill.category}</div>
+              <div className="skills-col right">{skill.items.join(', ')}</div>
+            </div>
+          ))}
         </div>
       </div>
-      </div>
-
-      
     </div>
-  )
+  );
 }
 
-export default Skills
+export default Skills;

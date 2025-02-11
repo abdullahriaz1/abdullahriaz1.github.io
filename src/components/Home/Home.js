@@ -4,6 +4,7 @@ import Projects from '../Projects/Projects.js'
 import Header from '../Header.js'
 import Contact from '../Contact/Contact.js'
 import Skills from '../Skills.js'
+import Gallery from '../Gallery.js'
 function Home() {
   return (
     <div className="home"id="home" >
@@ -24,10 +25,8 @@ function Home() {
           Computer Engineering B.S. - UC Santa Cruz, Dec. 2024
           </p>
         </div>
-
-        
-          
       </div>
+      <Gallery></Gallery>
       <hr></hr>
       <Projects></Projects>
       <hr></hr>
