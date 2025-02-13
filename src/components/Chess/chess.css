@@ -1,0 +1,78 @@
+/* chess.css */
+
+/* Define CSS variables for easy customization */
+:root {
+    --light-square-color: #fff6d5;        /* Color for light squares */
+    --dark-square-color: #1e621a;         /* Color for dark squares */
+    --hover-square-color: rgba(255, 255, 0, 0.3); /* Hover color */
+    --animation-duration: 0.5s;           /* Animation duration */
+  }
+  
+  /* Main container for the chess component */
+  .chess-container {
+    text-align: center;
+    margin: 0 auto;
+    animation: fadeIn var(--animation-duration) ease-in-out;
+  }
+  
+  /* Container to center the chessboard */
+  .chessboard-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  
+  /* Global styling for chessboard squares.
+     Note: react‑chessboard renders each square with the classes "square" and either "light" or "dark".
+     Using !important helps override inline styles applied by the component. */
+  .square.light {
+    background-color: var(--light-square-color) !important;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  .square.dark {
+    background-color: var(--dark-square-color) !important;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  /* Hover effect on squares */
+  .square.light:hover,
+  .square.dark:hover {
+    background-color: var(--hover-square-color) !important;
+    transform: scale(1.05);
+  }
+  
+  /* Styling for the chess status text */
+  .chess-status {
+    margin-top: 1rem;
+    font-size: 1.2rem;
+  }
+  
+  /* Styling for the reset button */
+  .reset-button {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    background-color: #eee;
+    transition: background-color 0.3s ease;
+  }
+  
+  /* Hover effect for the reset button */
+  .reset-button:hover {
+    background-color: #ddd;
+  }
+  
+  /* Fade in animation for the chess component */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  

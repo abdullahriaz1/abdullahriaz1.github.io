@@ -18,9 +18,9 @@ const imageList = images.keys().map((img) => images(img));
 
 // JSON variable holding our text items
 const textsJson = [
-  { id: 1, text: "The Gallery" },
-  { id: 2, text: "Sample Text 1" },
-  { id: 3, text: "Sample Text 2" }
+  { id: 1, text: "This is my Gallery" },
+  { id: 2, text: "Dear Friend" },
+  { id: 3, text: "Welcome" }
 ];
 
 // The ring radius for the image prisms
@@ -177,7 +177,7 @@ function TitleTextItem({ text, position }) {
   const { camera } = useThree();
   const groupRef = useRef();
   const textRef = useRef();
-  const planeSize = [18, 6];
+  const planeSize = [text.length * 2.5, 6];
   useFrame((state) => {
     if (!groupRef.current) return;
     groupRef.current.lookAt(camera.position);
@@ -199,7 +199,7 @@ function TitleTextItem({ text, position }) {
           opacity={0.6}
         />
       </mesh>
-      <Text ref={textRef} fontSize={3} anchorX="center" anchorY="middle" color="white">
+      <Text ref={textRef} fontSize={4} anchorX="center" anchorY="middle" color="white">
         {text}
       </Text>
     </group>
