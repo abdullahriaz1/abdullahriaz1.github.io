@@ -1,60 +1,127 @@
 // src/components/Gallery.js
-import React, { useRef, useState, useEffect } from 'react';
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useMemo
+} from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture } from '@react-three/drei';
+import { OrbitControls, useTexture, Text } from '@react-three/drei';
 import { a, useSpring } from '@react-spring/three';
 
 // Dynamically import all images from your photo-gallery folder
 const images = require.context('../photo-gallery', true);
 const imageList = images.keys().map((img) => images(img));
 
-// Increased gallery radius for more spread
-const radius = 70;
+// JSON variable holding our text items
+const textsJson = [
+  { id: 1, text: "The Gallery" },
+  { id: 2, text: "Sample Text 1" },
+  { id: 3, text: "Sample Text 2" }
+];
+
+// The ring radius for the image prisms
+const radius = 105;
+
+/**
+ * RainbowEdges
+ *
+ * Renders a lineSegments EdgesGeometry (of a box) that cycles through rainbow hues.
+ */
+function RainbowEdges({ width, height, depth }) {
+  const linesRef = useRef();
+  const edgesGeometry = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(width, height, depth)),
+    [width, height, depth]
+  );
+  useFrame((state) => {
+    if (!linesRef.current) return;
+    const t = state.clock.getElapsedTime();
+    const hue = (t * 0.1) % 1;
+    linesRef.current.material.color.setHSL(hue, 1, 0.5);
+  });
+  return (
+    <lineSegments ref={linesRef} geometry={edgesGeometry}>
+      <lineBasicMaterial />
+    </lineSegments>
+  );
+}
+
+/**
+ * RainbowEdgesSphere
+ *
+ * Renders a lineSegments EdgesGeometry for a sphere that cycles through rainbow hues.
+ * (Not used for the egg anymore.)
+ */
+function RainbowEdgesSphere({ radius, widthSegments, heightSegments }) {
+  const linesRef = useRef();
+  const geometry = useMemo(
+    () =>
+      new THREE.EdgesGeometry(
+        new THREE.SphereGeometry(radius, widthSegments, heightSegments)
+      ),
+    [radius, widthSegments, heightSegments]
+  );
+  useFrame((state) => {
+    if (!linesRef.current) return;
+    const t = state.clock.getElapsedTime();
+    const hue = (t * 0.1) % 1;
+    linesRef.current.material.color.setHSL(hue, 1, 0.5);
+  });
+  return (
+    <lineSegments ref={linesRef} geometry={geometry}>
+      <lineBasicMaterial />
+    </lineSegments>
+  );
+}
 
 /**
  * ImagePrism
  *
- * Each image is rendered on a rectangular prism whose dimensions are computed
- * from the image’s natural size. The larger side is scaled to 20 units with a constant depth of 3.
- * Only the front face (assumed to be the positive Z face) is textured.
+ * Displays an image on a box whose largest side is scaled to 36.
+ * All six faces are covered with the same stretched image texture.
+ * The prism smoothly rotates toward the camera.
+ * It shows a rainbow border glow if hovered, or if it’s the currently focused image,
+ * or if it is the candidate image.
  */
-function ImagePrism({ url, position }) {
+function ImagePrism({ url, position, onClickFocus, isFocused, isCandidate }) {
   const { camera } = useThree();
   const prismRef = useRef();
+  const [hovered, setHovered] = useState(false);
   const texture = useTexture(url);
-  const [dimensions, setDimensions] = useState({ width: 20, height: 20 });
 
-  // Compute dimensions based on the image's natural size, scaling so the larger side becomes 20.
+  // Final largest dimension is 36.
+  const [dimensions, setDimensions] = useState({ width: 36, height: 36 });
+  const depth = 3;
   useEffect(() => {
-    if (texture && texture.image) {
-      const naturalWidth = texture.image.width;
-      const naturalHeight = texture.image.height;
-      const scaleFactor = 20 / Math.max(naturalWidth, naturalHeight);
+    if (texture?.image) {
+      const { width, height } = texture.image;
+      const scaleFactor = 36 / Math.max(width, height);
       setDimensions({
-        width: naturalWidth * scaleFactor,
-        height: naturalHeight * scaleFactor,
+        width: width * scaleFactor,
+        height: height * scaleFactor
       });
     }
   }, [texture]);
 
-  const depth = 3; // constant depth
+  // Use one material for all faces so the image stretches to cover every side.
+  const imageMaterial = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: '#eeeeee'
+  });
+  const materials = [imageMaterial, imageMaterial, imageMaterial, imageMaterial, imageMaterial, imageMaterial];
 
-  // Create materials: only the front face (index 4) gets the texture.
-  const materials = [
-    new THREE.MeshBasicMaterial({ color: '#777' }), // Right
-    new THREE.MeshBasicMaterial({ color: '#777' }), // Left
-    new THREE.MeshBasicMaterial({ color: '#777' }), // Top
-    new THREE.MeshBasicMaterial({ color: '#777' }), // Bottom
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true }), // Front
-    new THREE.MeshBasicMaterial({ color: '#777' }), // Back
-  ];
-
-  // Rotate the prism so its front always faces the camera.
+  // Smoothly rotate toward the camera:
   useFrame(() => {
-    if (prismRef.current) {
-      prismRef.current.lookAt(camera.position);
-    }
+    if (!prismRef.current) return;
+    const oldQ = prismRef.current.quaternion.clone();
+    prismRef.current.lookAt(camera.position);
+    const targetQ = prismRef.current.quaternion.clone();
+    prismRef.current.quaternion.copy(oldQ);
+    prismRef.current.quaternion.slerp(targetQ, 0.02);
   });
 
   return (
@@ -62,7 +129,102 @@ function ImagePrism({ url, position }) {
       <mesh
         geometry={new THREE.BoxGeometry(dimensions.width, dimensions.height, depth)}
         material={materials}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          setHovered(false);
+          document.body.style.cursor = 'default';
+        }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onClickFocus(url);
+        }}
       />
+      {(hovered || isFocused || isCandidate) && (
+        <>
+          <RainbowEdges
+            width={dimensions.width * 1.01}
+            height={dimensions.height * 1.01}
+            depth={depth * 1.01}
+          />
+          <RainbowEdges
+            width={dimensions.width * 1.02}
+            height={dimensions.height * 1.02}
+            depth={depth * 1.02}
+          />
+          <RainbowEdges
+            width={dimensions.width * 1.03}
+            height={dimensions.height * 1.03}
+            depth={depth * 1.03}
+          />
+        </>
+      )}
+    </group>
+  );
+}
+
+/**
+ * TitleTextItem
+ *
+ * Displays a single text item with a frame behind it.
+ * It always faces the camera and its text color cycles through rainbow hues.
+ */
+function TitleTextItem({ text, position }) {
+  const { camera } = useThree();
+  const groupRef = useRef();
+  const textRef = useRef();
+  const planeSize = [18, 6];
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    groupRef.current.lookAt(camera.position);
+    if (textRef.current) {
+      const t = state.clock.getElapsedTime();
+      const hue = (t * 0.1) % 1;
+      textRef.current.color = new THREE.Color().setHSL(hue, 1, 0.5);
+    }
+  });
+  return (
+    <group ref={groupRef} position={position}>
+      <mesh position={[0, 0, -0.01]}>
+        <planeGeometry args={planeSize} />
+        <meshStandardMaterial
+          color="#000000"
+          metalness={0.2}
+          roughness={0.4}
+          transparent
+          opacity={0.6}
+        />
+      </mesh>
+      <Text ref={textRef} fontSize={3} anchorX="center" anchorY="middle" color="white">
+        {text}
+      </Text>
+    </group>
+  );
+}
+
+/**
+ * TitleTextCircle
+ *
+ * Arranges multiple TitleTextItem components in a circle.
+ * The entire group rotates (orbits) around the center.
+ */
+function TitleTextCircle({ texts, circleRadius = 30, y = 20 }) {
+  const groupRef = useRef();
+  useFrame(() => {
+    if (groupRef.current) groupRef.current.rotation.y += 0.002;
+  });
+  return (
+    <group ref={groupRef}>
+      {texts.map((item, index) => {
+        const angle = (index / texts.length) * Math.PI * 2;
+        const x = circleRadius * Math.cos(angle);
+        const z = circleRadius * Math.sin(angle);
+        return <TitleTextItem key={item.id} text={item.text} position={[x, y, z]} />;
+      })}
     </group>
   );
 }
@@ -70,13 +232,13 @@ function ImagePrism({ url, position }) {
 /**
  * GalleryScene
  *
- * Arranges the image prisms on a circle and rotates the entire group.
+ * Renders a rotating circle of ImagePrisms.
+ * Each prism gets an `isFocused` prop if its URL equals the global focused image,
+ * and an `isCandidate` prop if its URL equals the current candidate image.
  */
-function GalleryScene({ groupRef }) {
+function GalleryScene({ groupRef, onClickFocus, focusedImage, candidateImage }) {
   useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.002;
-    }
+    if (groupRef.current) groupRef.current.rotation.y += 0.002;
   });
   return (
     <group ref={groupRef}>
@@ -84,7 +246,16 @@ function GalleryScene({ groupRef }) {
         const angle = (i / imageList.length) * Math.PI * 2;
         const x = radius * Math.cos(angle);
         const z = radius * Math.sin(angle);
-        return <ImagePrism key={i} url={img} position={[x, 0, z]} />;
+        return (
+          <ImagePrism
+            key={i}
+            url={img}
+            position={[x, 0, z]}
+            onClickFocus={onClickFocus}
+            isFocused={img === focusedImage}
+            isCandidate={img === candidateImage}
+          />
+        );
       })}
     </group>
   );
@@ -93,45 +264,36 @@ function GalleryScene({ groupRef }) {
 /**
  * FocusedEllipsoid
  *
- * Creates an ellipsoidal (egg‑shaped) sky by using a sphere geometry that is scaled
- * non‑uniformly along the Y‑axis. The texture is set to repeat twice horizontally so that
- * the image appears twice around the sphere. The material’s side is set to THREE.BackSide
- * so that the texture is visible on the inside.
+ * Displays the focused image on a 2× scaled inside-out sphere ("egg").
+ * The egg texture is flipped horizontally (using negative repeat/offset)
+ * so it appears correct. (No glowing border is applied to the egg.)
  */
 function FocusedEllipsoid({ focusedImage }) {
-  const texture = useTexture(focusedImage);
-
-  // Set the texture to repeat twice horizontally.
+  const baseTexture = useTexture(focusedImage);
+  const [ellipsoidTexture, setEllipsoidTexture] = useState(null);
   useEffect(() => {
-    if (texture) {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.repeat.set(2, 1); // Repeat the image twice on the horizontal (U) axis.
-      texture.needsUpdate = true;
-    }
-  }, [texture]);
-
+    if (!baseTexture) return;
+    const cloned = baseTexture.clone();
+    cloned.wrapS = THREE.RepeatWrapping;
+    // Flip horizontally: negative repeat on x and offset x to 1.
+    cloned.repeat.set(-2, 1);
+    cloned.offset.set(1, 0);
+    cloned.needsUpdate = true;
+    setEllipsoidTexture(cloned);
+  }, [baseTexture]);
   const [spring, api] = useSpring(() => ({
-    scale: 0.8, // starting uniform scale
-    config: { mass: 1, tension: 170, friction: 26 },
+    scale: 0.8,
+    config: { mass: 1, tension: 170, friction: 26 }
   }));
-
   useEffect(() => {
-    // Animate to a uniform scale of 1.
     api.start({ scale: 1 });
   }, [focusedImage, api]);
-
+  if (!ellipsoidTexture) return null;
   return (
-    // The animated group scales uniformly using the spring value.
-    <a.group scale={spring.scale}>
-      {/*
-        The inner mesh is scaled non‑uniformly:
-        - X and Z remain 1 (full size),
-        - Y is reduced (0.7) to create an ovular (egg‑shaped) effect.
-      */}
+    <a.group scale={spring.scale.to((s) => [2 * s, 2 * s, 2 * s])}>
       <mesh scale={[1, 0.7, 1]}>
-        {/* Sphere geometry with a radius of 300 for a large skybox. */}
         <sphereGeometry args={[300, 64, 64]} />
-        <meshBasicMaterial map={texture} side={THREE.BackSide} />
+        <meshBasicMaterial map={ellipsoidTexture} side={THREE.BackSide} />
       </mesh>
     </a.group>
   );
@@ -140,25 +302,33 @@ function FocusedEllipsoid({ focusedImage }) {
 /**
  * AutoFocus
  *
- * Projects each image's position into screen space and finds the one closest to the center.
- * The focused image only changes if a new image is in focus for more than 0.8 seconds.
+ * Determines which image is currently in the center of view.
+ * If an image is held in the center for 2 seconds, it becomes the focused image.
+ * Additionally, we call onCandidateChange each frame so that the current candidate
+ * (the image currently in view) can be used to immediately add the border glow.
  */
-function AutoFocus({ groupRef }) {
+const AutoFocus = forwardRef(function AutoFocus(
+  { groupRef, focusedImage, setFocusedImage, onCandidateChange },
+  ref
+) {
   const { camera } = useThree();
-  const [focusedImage, setFocusedImage] = useState(null);
-  // candidateRef holds the candidate image and the time when it first became the candidate.
   const candidateRef = useRef({ candidate: null, start: 0 });
-  const holdDuration = 800; // milliseconds
-
+  const holdDuration = 2000;
+  useImperativeHandle(ref, () => ({
+    resetCandidate: () => {
+      candidateRef.current = { candidate: null, start: 0 };
+    }
+  }));
   useFrame(() => {
     if (!groupRef.current) return;
     let bestIndex = -1;
     let bestDistance = Infinity;
     for (let i = 0; i < imageList.length; i++) {
+      const angle = (i / imageList.length) * Math.PI * 2;
       const localPos = new THREE.Vector3(
-        radius * Math.cos((i / imageList.length) * Math.PI * 2),
+        radius * Math.cos(angle),
         0,
-        radius * Math.sin((i / imageList.length) * Math.PI * 2)
+        radius * Math.sin(angle)
       );
       groupRef.current.localToWorld(localPos);
       const ndcPos = localPos.clone().project(camera);
@@ -168,89 +338,189 @@ function AutoFocus({ groupRef }) {
         bestIndex = i;
       }
     }
-
+    let candidate = null;
     if (bestDistance < 0.3) {
-      const candidate = imageList[bestIndex];
-      // If the candidate is the same, check if it has been held long enough.
+      candidate = imageList[bestIndex];
       if (candidateRef.current.candidate === candidate) {
-        if (Date.now() - candidateRef.current.start > holdDuration) {
-          if (candidate !== focusedImage) {
-            setFocusedImage(candidate);
-          }
+        const elapsed = Date.now() - candidateRef.current.start;
+        if (elapsed > holdDuration && candidate !== focusedImage) {
+          setFocusedImage(candidate);
         }
       } else {
-        // A new candidate: reset the timer.
         candidateRef.current = { candidate, start: Date.now() };
       }
     } else {
-      // Reset if no candidate is in focus.
       candidateRef.current = { candidate: null, start: 0 };
     }
+    if (onCandidateChange) onCandidateChange(candidateRef.current.candidate);
   });
-
-  return focusedImage ? <FocusedEllipsoid focusedImage={focusedImage} /> : null;
-}
+  return null;
+});
 
 /**
  * ClampControls
  *
- * Smoothly clamps the OrbitControls target and the camera's position so that they remain
- * within a certain range, ensuring the view stays inside the sky.
+ * Radially clamps the camera and orbit target so they remain inside a sphere of radius 600.
  */
 function ClampControls({ controlsRef }) {
   const { camera } = useThree();
   useFrame(() => {
     if (!controlsRef.current) return;
-    const min = -140,
-      max = 140;
-    const target = controlsRef.current.target.clone();
-    const clampedTarget = new THREE.Vector3(
-      THREE.MathUtils.clamp(target.x, min, max),
-      THREE.MathUtils.clamp(target.y, min, max),
-      THREE.MathUtils.clamp(target.z, min, max)
-    );
-    controlsRef.current.target.lerp(clampedTarget, 0.1);
-
-    const currentPos = camera.position.clone();
-    const clampedPos = new THREE.Vector3(
-      THREE.MathUtils.clamp(currentPos.x, min, max),
-      THREE.MathUtils.clamp(currentPos.y, min, max),
-      THREE.MathUtils.clamp(currentPos.z, min, max)
-    );
-    camera.position.lerp(clampedPos, 0.1);
+    const maxR = 600;
+    const t = controlsRef.current.target.clone();
+    const distT = t.length();
+    if (distT > maxR) {
+      t.normalize().multiplyScalar(maxR);
+      controlsRef.current.target.lerp(t, 0.2);
+    }
+    const p = camera.position.clone();
+    const distP = p.length();
+    if (distP > maxR) {
+      p.normalize().multiplyScalar(maxR);
+      camera.position.lerp(p, 0.2);
+    }
     controlsRef.current.update();
   });
   return null;
 }
 
 /**
+ * CaptureCamera
+ *
+ * Grabs the camera reference and passes it up.
+ */
+function CaptureCamera({ onCameraReady }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    onCameraReady(camera);
+  }, [camera, onCameraReady]);
+  return null;
+}
+
+/**
  * Gallery
  *
- * Sets up the 3D scene with the rotating gallery of image prisms,
- * auto‑focus logic, and OrbitControls that simulate a first‑person-like view.
+ * Main scene:
+ * - On mount, a random image is chosen for initial focus.
+ * - TitleTextCircle arranges text items (from textsJson) in a circle (radius 30, y=20) that orbit.
+ * - GalleryScene displays a rotating circle of ImagePrisms.
+ * - FocusedEllipsoid displays the focused image on a 2× scaled inside-out sphere ("egg") (no border glow on the egg).
+ * - AutoFocus determines the candidate image and sets the focused image after 2 seconds.
+ *   It also calls onCandidateChange so that each ImagePrism knows if it is the candidate.
+ * - OrbitControls and ClampControls are integrated.
  */
 function Gallery() {
   const groupRef = useRef();
   const controlsRef = useRef();
+  const containerRef = useRef(null);
+  const [focusedImage, setFocusedImage] = useState(null);
+  const [candidateImage, setCandidateImage] = useState(null);
+  const autoFocusRef = useRef(null);
+  const [cameraRef, setCameraRef] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!focusedImage) {
+      const randomIndex = Math.floor(Math.random() * imageList.length);
+      setFocusedImage(imageList[randomIndex]);
+    }
+  }, [focusedImage]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleResetView = () => {
+    if (cameraRef && controlsRef.current) {
+      cameraRef.position.set(0, 5, 15);
+      controlsRef.current.target.set(0, 5, 14.9);
+      controlsRef.current.update();
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  const handleClickFocus = (url) => {
+    setFocusedImage(url);
+    if (autoFocusRef.current) {
+      autoFocusRef.current.resetCandidate();
+    }
+  };
 
   return (
-    <Canvas camera={{ position: [0, 5, 15] }} style={{ height: '100vh', background: '#111' }}>
-      <ambientLight intensity={0.3} />
-      <pointLight intensity={0.3} position={[10, 10, 10]} />
-      <GalleryScene groupRef={groupRef} />
-      <AutoFocus groupRef={groupRef} />
-      <OrbitControls
-        ref={controlsRef}
-        target={[0, 5, 14.9]}
-        enableZoom={true}
-        zoomSpeed={2.5}
-        enablePan={true}
-        panSpeed={2.5}
-        minDistance={10}
-        maxDistance={250}
-      />
-      <ClampControls controlsRef={controlsRef} />
-    </Canvas>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100vh' }}>
+      <Canvas camera={{ position: [0, 5, 15] }} style={{ background: '#111', width: '100%', height: '100%' }}>
+        <ambientLight intensity={0.8} />
+        <pointLight intensity={0.8} position={[10, 10, 10]} />
+        <CaptureCamera onCameraReady={setCameraRef} />
+        {/* Arrange text items in a circle */}
+        <TitleTextCircle texts={textsJson} circleRadius={30} y={20} />
+        <GalleryScene groupRef={groupRef} onClickFocus={handleClickFocus} focusedImage={focusedImage} candidateImage={candidateImage} />
+        <AutoFocus ref={autoFocusRef} groupRef={groupRef} focusedImage={focusedImage} setFocusedImage={setFocusedImage} onCandidateChange={setCandidateImage} />
+        {focusedImage && <FocusedEllipsoid focusedImage={focusedImage} />}
+        <OrbitControls
+          ref={controlsRef}
+          minDistance={1}
+          maxDistance={250}
+          target={[0, 5, 14.9]}
+          enableZoom
+          zoomSpeed={2.5}
+          enablePan
+          panSpeed={2.5}
+        />
+        <ClampControls controlsRef={controlsRef} />
+      </Canvas>
+      <div
+        style={{
+          position: 'absolute',
+          right: '20px',
+          top: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          zIndex: 9999
+        }}
+      >
+        <button
+          onClick={handleResetView}
+          style={{
+            padding: '8px 12px',
+            background: '#222',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Reset View
+        </button>
+        <button
+          onClick={handleToggleFullscreen}
+          style={{
+            padding: '8px 12px',
+            background: '#222',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        </button>
+      </div>
+    </div>
   );
 }
 

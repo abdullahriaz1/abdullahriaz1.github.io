@@ -20,9 +20,9 @@ function Home() {
         <div className="home-intro-text">
           <h1>Hello, I'm Abdullah Riaz!</h1>
           <p>
-            Software Engineer
+            Software Engineer Intern @ The Guestbook
             <br/>
-            Computer Engineering B.S. - UC Santa Cruz, Dec. 2024
+            Computer Engineering B.S. with Minor in Computer Science - UC Santa Cruz, Dec. 2024
           </p>
         </div>
 
