@@ -1,280 +1,642 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
+import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
+import { PointerLockControls, useGLTF, Text } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
+import { ParametricGeometry } from "three/examples/jsm/geometries/ParametricGeometry";
+import backgroundImage from "../photo-gallery/wp9262282-european-village-4k-wallpapers.jpg";
 
-// Generic CarModel component that loads and clones any model via useGLTF.
-function CarModel({ url, scale, position, rotation, emissiveIntensity, emissiveColor, onCarClick }) {
+// ----------------------------------------------------------------------------
+// Helper: Compute the center of an object's bounding box.
+const computeModelCenter = (object) => {
+  const box = new THREE.Box3().setFromObject(object);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  return center;
+};
+
+function BackgroundSheet({ xOffset = 0, yOffset = -20, zOffset = 29 }) {
+  const texture = useLoader(THREE.TextureLoader, backgroundImage);
+
+  // Configure texture once loaded: flip horizontally
+  useEffect(() => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    // Flip horizontally by setting repeat.x to -1 and adjusting offset.x
+    texture.repeat.set(-1, 1);
+    texture.needsUpdate = true;
+  }, [texture]);
+
+  // Create a parametric function for a surface with double curvature.
+  const parametricFunc = (u, v, target) => {
+    // Map u and v to angles for horizontal (theta) and vertical (phi) curvatures.
+    const theta = THREE.MathUtils.lerp(-Math.PI / 2, Math.PI / 2, u);
+    const phi = THREE.MathUtils.lerp(-Math.PI / 2, Math.PI / 2, v);
+
+    // Define radii for horizontal and vertical curvatures.
+    const horizontalRadius = 100;
+    const verticalRadius = 100;
+
+    // Calculate positions:
+    const x = horizontalRadius * Math.sin(theta);
+    const z = horizontalRadius * Math.cos(theta) * Math.cos(phi);
+    const y = verticalRadius * Math.sin(phi);
+
+    target.set(x, y, z);
+  };
+
+  // Create the geometry using ParametricGeometry
+  const geometry = useMemo(() => {
+    const segments = 64;
+    return new ParametricGeometry(parametricFunc, segments, segments);
+  }, []);
+
+  return (
+    <mesh position={[xOffset, yOffset, zOffset]}>
+      <primitive object={geometry} attach="geometry" />
+      <meshBasicMaterial map={texture} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// CarModel: Loads a GLTF model, applies material settings, centers it,
+// and continuously rotates it around the y-axis.
+function CarModel({
+  url,
+  scale,
+  position,
+  rotation,
+  emissiveIntensity,
+  emissiveColor,
+  onCarClick,
+  onLoadCenter,
+  rotationSpeed = 0.5, // default rotation speed if not provided
+}) {
   const { scene } = useGLTF(url);
-  // Clone the scene so each instance is independent.
   const clonedScene = useMemo(() => scene.clone(true), [scene]);
+  const modelRef = useRef();
+  const animatedRef = useRef();
+  const hasCentered = useRef(false);
 
-  clonedScene.traverse((child) => {
-    if (child.isMesh) {
-      child.material.emissive = new THREE.Color(emissiveColor, emissiveColor, emissiveColor);
-      child.material.emissiveIntensity = emissiveIntensity;
-      child.material.toneMapped = false;
+  useFrame((state, delta) => {
+    if (animatedRef.current) {
+      animatedRef.current.rotation.y += delta * rotationSpeed;
     }
   });
+
+  useLayoutEffect(() => {
+    if (modelRef.current && !hasCentered.current) {
+      const center = computeModelCenter(modelRef.current);
+      modelRef.current.position.sub(center);
+      hasCentered.current = true;
+      onLoadCenter && onLoadCenter([center.x, center.y, center.z]);
+    }
+  }, [clonedScene, onLoadCenter]);
+
+  useMemo(() => {
+    clonedScene.traverse((child) => {
+      if (child.isMesh) {
+        child.material.emissive = new THREE.Color(
+          emissiveColor,
+          emissiveColor,
+          emissiveColor
+        );
+        child.material.emissiveIntensity = emissiveIntensity;
+        child.material.toneMapped = false;
+      }
+    });
+  }, [clonedScene, emissiveColor, emissiveIntensity]);
 
   return (
     <group
       onClick={(e) => {
         e.stopPropagation();
-        if (onCarClick) onCarClick();
+        onCarClick && onCarClick();
       }}
       onPointerOver={() => (document.body.style.cursor = "pointer")}
       onPointerOut={() => (document.body.style.cursor = "default")}
+      position={position}
+      rotation={rotation}
+      scale={scale}
     >
-      <primitive object={clonedScene} scale={scale} position={position} rotation={rotation} />
+      <group ref={animatedRef}>
+        <group ref={modelRef}>
+          <primitive object={clonedScene} />
+        </group>
+      </group>
     </group>
   );
 }
 
-function Showroom() {
-  const { scene } = useGLTF("/3d-assets/studio_v1_for_car/scene.gltf");
-  return <primitive object={scene} scale={1} />;
+// ----------------------------------------------------------------------------
+// CarLabels: Map through the cars and place a text label at y = 3,
+// using each car's x and z positions.
+function CarLabels({ cars }) {
+  
+  return cars.map((car) => {
+    const row = car.row ? -1 : 1; // Define the constant inside the function body
+    return (
+      <Text
+        key={car.id + "-label"}
+        position={[car.position[0], 3, car.position[2]]}
+        rotation={[0, Math.PI / 2 * row, 0]}
+        fontSize={0.25}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {car.name}
+      </Text>
+    );
+  });
 }
 
+// ----------------------------------------------------------------------------
+// Showroom: Loads and displays the studio environment.
+function Showroom() {
+  const { scene } = useGLTF("/3d-assets/studio_v1_for_car/scene.gltf");
+
+  // Create a clipping plane along the x-axis.
+  // Adjust the normal vector and constant to control the clipping.
+  const clippingPlane = useMemo(
+    () => new THREE.Plane(new THREE.Vector3(0, 0, -30), 1),
+    []
+  );
+
+  // Traverse through the scene to apply the clipping plane to each mesh's material.
+  scene.traverse((child) => {
+    if (child.isMesh) {
+      if (Array.isArray(child.material)) {
+        child.material.forEach((mat) => {
+          mat.clippingPlanes = [clippingPlane];
+          mat.clipShadows = true;
+        });
+      } else {
+        child.material.clippingPlanes = [clippingPlane];
+        child.material.clipShadows = true;
+      }
+    }
+  });
+
+  return <primitive object={scene} scale={2} />;
+}
+
+// ----------------------------------------------------------------------------
+// CarControlPanel: A memoized sub-component for a car's control UI.
+const CarControlPanel = React.memo(({ car, updateCar, resetCar }) => {
+  return (
+    <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
+      <h3>{car.name} Effects</h3>
+      <label>
+        Scale:{" "}
+        <input
+          type="range"
+          min="0.1"
+          max="5"
+          step="0.01"
+          value={car.baseScale}
+          onChange={(e) =>
+            updateCar(car.id, { baseScale: parseFloat(e.target.value) })
+          }
+        />
+      </label>
+      <br />
+      {["X", "Y", "Z"].map((axis, i) => (
+        <div key={`pos-${axis}`}>
+          <label>
+            Position {axis}:{" "}
+            <input
+              type="range"
+              min="-10"
+              max="10"
+              step="0.1"
+              value={car.position[i]}
+              onChange={(e) => {
+                const newPos = [...car.position];
+                newPos[i] = parseFloat(e.target.value);
+                updateCar(car.id, { position: newPos });
+              }}
+            />
+          </label>
+        </div>
+      ))}
+      {["X", "Y", "Z"].map((axis, i) => (
+        <div key={`rot-${axis}`}>
+          <label>
+            Rotation {axis}:{" "}
+            <input
+              type="range"
+              min="-3.14"
+              max="3.14"
+              step="0.01"
+              value={car.rotation[i]}
+              onChange={(e) => {
+                const newRot = [...car.rotation];
+                newRot[i] = parseFloat(e.target.value);
+                updateCar(car.id, { rotation: newRot });
+              }}
+            />
+          </label>
+        </div>
+      ))}
+      <label>
+        Emissive Intensity:{" "}
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value={car.emissiveIntensity}
+          onChange={(e) =>
+            updateCar(car.id, { emissiveIntensity: parseFloat(e.target.value) })
+          }
+        />
+      </label>
+      <br />
+      <label>
+        Emissive Color:{" "}
+        <input
+          type="range"
+          min="0"
+          max="0.3"
+          step="0.01"
+          value={car.emissiveColor}
+          onChange={(e) =>
+            updateCar(car.id, { emissiveColor: parseFloat(e.target.value) })
+          }
+        />
+      </label>
+      <pre style={{ color: "white", marginTop: "10px" }}>
+        {JSON.stringify(
+          {
+            baseScale: car.baseScale,
+            position: car.position,
+            rotation: car.rotation,
+            emissiveIntensity: car.emissiveIntensity,
+            emissiveColor: car.emissiveColor,
+            center: car.center,
+          },
+          null,
+          2
+        )}
+      </pre>
+      <br />
+      <button
+        onClick={() => resetCar(car.id)}
+        style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}
+      >
+        Reset {car.name}
+      </button>
+    </div>
+  );
+});
+
+// ----------------------------------------------------------------------------
+// FirstPersonMovement: Listens for WASD keys and moves the camera.
+function FirstPersonMovement({ speed = 12, bounds }) {
+  const { camera } = useThree();
+  const keys = useRef({});
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      keys.current[e.key.toLowerCase()] = true;
+    };
+    const handleKeyUp = (e) => {
+      keys.current[e.key.toLowerCase()] = false;
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  useFrame((state, delta) => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    direction.y = 0;
+    direction.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(camera.up, direction).normalize();
+
+    const move = new THREE.Vector3();
+    if (keys.current["w"]) move.add(direction);
+    if (keys.current["s"]) move.sub(direction);
+    if (keys.current["a"]) move.add(right);
+    if (keys.current["d"]) move.sub(right);
+    if (move.length() > 0) {
+      move.normalize().multiplyScalar(speed * delta);
+      camera.position.add(move);
+      if (bounds) {
+        camera.position.clamp(bounds.min, bounds.max);
+      }
+    }
+  });
+
+  return null;
+}
+
+// ----------------------------------------------------------------------------
+// CameraTracker: Updates the parent state with the current camera position.
+function CameraTracker({ setCameraPosition }) {
+  const { camera } = useThree();
+  useFrame(() => {
+    setCameraPosition([
+      camera.position.x,
+      camera.position.y,
+      camera.position.z,
+    ]);
+  });
+  return null;
+}
+
+// ----------------------------------------------------------------------------
+// CarRoom: The main component.
 function CarRoom() {
-  // Define row presets for common properties.
-  const leftRowPreset = {
-    position: [-2.2, 0.15, 0], // common x and y (base z=0)
-    rotation: [0.18, 0.92, -0.11],
-    scale: 0.5,
-    emissiveIntensity: 0.4,
-    emissiveColor: 0.01,
-  };
+  // Common preset for all cars.
+  const commonPreset = useMemo(
+    () => ({
+      position: [0, 0.8, 9],
+      rotation: [0, 0, 0],
+      scale: 1,
+      emissiveIntensity: 0.4,
+      emissiveColor: 0.01,
+    }),
+    []
+  );
 
-  const rightRowPreset = {
-    position: [1.2, 0.15, 0], // common x and y (base z=0)
-    rotation: [0.18, -0.92, 0.11],
-    scale: 0.6,
-    emissiveIntensity: 0.1,
-    emissiveColor: 0.01,
-  };
+  // Constants for positioning cars in two rows.
+  const rowXPositions = useMemo(() => [-4, 3], []);
+  const zSpacing = 6;
 
-  // Define the left row cars.
-  const leftRowCars = [
-    {
-      id: "ferrari-f50",
-      name: "Ferrari F50",
-      url: "/3d-assets/ferrari_f50_1995/scene.gltf",
-      preset: { ...leftRowPreset },
-      rowSide: "left",
-    },
-    {
-      id: "bmw-m3-gtr",
-      name: "BMW M3 GTR",
-      url: "/3d-assets/2001__bmw_m3_gtr_e46_special_thanks_for_1.3k/scene.gltf",
-      // For the BMW, add a rotationOffset to rotate y by -1.59.
-      preset: { ...leftRowPreset, rotationOffset: [-.17, -1.59, 0] },
-      rowSide: "left",
-    },
-    {
-      id: "mclaren-f1",
-      name: "McLaren F1",
-      url: "/3d-assets/mclaren_f1_1993_ruby/scene.gltf",
-      preset: { ...leftRowPreset },
-      rowSide: "left",
-    },
-    
-  ];
+  // Combined car configurations.
+  const carsConfig = useMemo(
+    () => [
+      {
+        id: "ferrari-f50",
+        name: "Ferrari F50",
+        url: "/3d-assets/ferrari_f50_1995/scene.gltf",
+        scaleMultiplier: 1,
+      },
+      {
+        id: "bmw-m3-gtr",
+        name: "BMW M3 GTR",
+        url: "/3d-assets/2001__bmw_m3_gtr_e46_special_thanks_for_1.3k/scene.gltf",
+        scaleMultiplier: 0.9,
+        rotationOffset: [0, -1.37, 0],
+      },
+      {
+        id: "mclaren-f1",
+        name: "McLaren F1",
+        url: "/3d-assets/mclaren_f1_lm/scene.gltf",
+        scaleMultiplier: 0.23,
+      },
+      {
+        id: "mercedes-benz-slr-mclaren",
+        name: "Mercedes-Benz SLR McLaren",
+        url: "/3d-assets/mercedes-benz_slr_mclaren/scene.gltf",
+        scaleMultiplier: 0.025,
+      },
+      {
+        id: "porsche-918-spyder-2015",
+        name: "Porsche 918 Spyder 2015",
+        url: "/3d-assets/porsche_918_spyder_2015__www.vecarz.com/scene.gltf",
+        scaleMultiplier: 0.9,
+      },
+      {
+        id: "ferrari-f40",
+        name: "Ferrari F40",
+        url: "/3d-assets/ferrari_f40/scene.gltf",
+        scaleMultiplier: 1.1,
+      },
+      {
+        id: "ferrari-fxx-evo",
+        name: "Ferrari FXX Evo",
+        url: "/3d-assets/2008_ferrari_fxx_evolution/scene.gltf",
+        scaleMultiplier: 100,
+      },
+      {
+        id: "1998-porsche-911-gt1-straenversion",
+        name: "1998 Porsche 911 GT1 Straßenversion",
+        url: "/3d-assets/1998_porsche_911_gt1_straenversion/scene.gltf",
+        scaleMultiplier: 108,
+      },
+      {
+        id: "2004-porsche-carrera-gt",
+        name: "2004 Porsche Carrera GT",
+        url: "/3d-assets/2004_porsche_carrera_gt/scene.gltf",
+        scaleMultiplier: 108,
+      },
+      {
+        id: "2007-koenigsegg-ccgt-gt1",
+        name: "2007 Koenigsegg CCGT GT1",
+        url: "/3d-assets/2007_koenigsegg_ccgt_gt1/scene.gltf",
+        scaleMultiplier: 108,
+      },
+      {
+        id: "2022-bmw-m4-gt3",
+        name: "2022 BMW M4 GT3",
+        url: "/3d-assets/2022_bmw_m4_gt3/scene.gltf",
+        scaleMultiplier: 108,
+      },
+      {
+        id: "honda-nsx-r",
+        name: "Honda NSX-R",
+        url: "/3d-assets/honda_nsx-r/scene.gltf",
+        scaleMultiplier: 2,
+        rotationOffset: [0, -1.56, 0],
+      },
+      {
+        id: "nissan-gt-r-gt500",
+        name: "Nissan GT-R GT500",
+        url: "/3d-assets/nissan_gt-r_gt500/scene.gltf",
+        scaleMultiplier: 1,
+        positionOffset: [0, 0.2, 0],
+      },
+      {
+        id: "porsche-911-gt2-rs-with-angle-eyes",
+        name: "Porsche 911 GT2 RS with Angle Eyes",
+        url: "/3d-assets/porsche_911_gt2_rs_with_angle_eyes/scene.gltf",
+        scaleMultiplier: 0.28,
+      },
+    ],
+    []
+  );
 
-  // Define the right row cars.
-  const rightRowCars = [
-    {
-      id: "ferrari-f40",
-      name: "Ferrari F40",
-      url: "/3d-assets/ferrari_f40/scene.gltf",
-      preset: { ...rightRowPreset },
-      rowSide: "right",
-    },
-    {
-      id: "ferrari-f40-2",
-      name: "Ferrari F40-2",
-      url: "/3d-assets/ferrari_f40/scene.gltf",
-      preset: { ...rightRowPreset },
-      rowSide: "right",
-    },
-    {
-      id: "porsche-gt3-rs",
-      name: "Porsche GT3 RS",
-      url: "/3d-assets/porsche_gt3_rs/scene.gltf",
-      preset: { ...rightRowPreset },
-      rowSide: "right",
-    },
-  ];
+  // Helper: Compute a car's properties based on its preset and layout.
+  const computeCarProps = useCallback(
+    (car, row, col, rowCount) => {
+      const finalX = rowXPositions[row];
+      const baseZ = commonPreset.position[2];
+      const finalZ = baseZ + (col - (rowCount - 1) / 2) * zSpacing;
+      const finalY = commonPreset.position[1];
 
-  // Helper: Given a row of cars, compute each car's initial properties using the row preset.
-  // Each car gets the same x,y position and rotation (plus any rotationOffset),
-  // and its z position is offset by 1.8 * index.
-  const initializeRowCars = (rowCars) =>
-    rowCars.map((car, index) => {
-      const basePos = car.preset.position; // [x, y, baseZ]
-      const baseRot = car.preset.rotation;
-      const rotationOffset = car.preset.rotationOffset || [0, 0, 0];
-      const finalRot = [
-        baseRot[0] + rotationOffset[0],
-        baseRot[1] + rotationOffset[1],
-        baseRot[2] + rotationOffset[2],
+      const finalPos = [
+        finalX + (car.positionOffset ? car.positionOffset[0] : 0),
+        finalY + (car.positionOffset ? car.positionOffset[1] : 0),
+        finalZ + (car.positionOffset ? car.positionOffset[2] : 0),
       ];
+
+      const finalRot = commonPreset.rotation.map((r, i) => {
+        const offset = car.rotationOffset ? car.rotationOffset[i] || 0 : 0;
+        return r + offset;
+      });
+
       return {
         ...car,
-        scale: car.preset.scale,
-        position: [basePos[0], basePos[1], basePos[2] + index * 1.8],
+        row, // Add the row index to determine rotation speed later
+        baseScale: car.baseScale !== undefined ? car.baseScale : commonPreset.scale,
+        position: finalPos,
         rotation: finalRot,
-        emissiveIntensity: car.preset.emissiveIntensity,
-        emissiveColor: car.preset.emissiveColor,
+        emissiveIntensity: commonPreset.emissiveIntensity,
+        emissiveColor: commonPreset.emissiveColor,
         showControls: false,
+        center: null,
       };
-    });
+    },
+    [commonPreset, rowXPositions, zSpacing]
+  );
 
-  // Combine the rows into one cars array.
-  const [cars, setCars] = useState(() => [
-    ...initializeRowCars(leftRowCars),
-    ...initializeRowCars(rightRowCars),
-  ]);
+  // Initialize cars into two rows.
+  const initializeRowCars = useCallback(
+    (carsArray) => {
+      const total = carsArray.length;
+      const row0Count = Math.ceil(total / 2);
+      return carsArray.map((car, index) => {
+        let row, col, rowCount;
+        if (index < row0Count) {
+          row = 0;
+          col = index;
+          rowCount = row0Count;
+        } else {
+          row = 1;
+          col = index - row0Count;
+          rowCount = total - row0Count;
+        }
+        return computeCarProps(car, row, col, rowCount);
+      });
+    },
+    [computeCarProps]
+  );
 
-  // Scene effects states (shared among all cars)
+  const [cars, setCars] = useState(() => initializeRowCars(carsConfig));
+
+  // Scene Effects state.
   const [brightness, setBrightness] = useState(0.5);
   const [bloomIntensity, setBloomIntensity] = useState(0.3);
   const [luminanceThreshold, setLuminanceThreshold] = useState(1);
   const [luminanceSmoothing, setLuminanceSmoothing] = useState(0.9);
 
-  // New camera state: position and rotation.
-  const [cameraPosition, setCameraPosition] = useState([5, 5, 10]);
-  const [cameraRotation, setCameraRotation] = useState([0, 0, 0]);
+  // State to store the current camera position.
+  const [cameraPosition, setCameraPosition] = useState([0, 0, 0]);
 
-  // Scene preset includes camera settings.
-  const scenePreset = {
-    brightness: 0.3,
-    bloomIntensity: 1.1,
-    luminanceThreshold: 2,
-    luminanceSmoothing: 1,
-    cameraPosition: [-0.775472465176633, 0.992834350577808, 3.9762112120794306],
-    cameraRotation: [-0.24469023241542284, -0.18700763852215546, -0.046389607772840555],
-  };
+  // Reset functions.
+  const resetAllCars = useCallback(() => {
+    setCars((prevCars) => {
+      const total = prevCars.length;
+      const row0Count = Math.ceil(total / 2);
+      return prevCars.map((car, index) => {
+        let row, col, rowCount;
+        if (index < row0Count) {
+          row = 0;
+          col = index;
+          rowCount = row0Count;
+        } else {
+          row = 1;
+          col = index - row0Count;
+          rowCount = total - row0Count;
+        }
+        return computeCarProps(car, row, col, rowCount);
+      });
+    });
+  }, [computeCarProps]);
 
-  // Ref for OrbitControls (camera)
-  const controlsRef = useRef();
-  // Ref for the canvas container (fullscreen)
-  const containerRef = useRef();
+  const resetCar = useCallback(
+    (id) => {
+      setCars((prevCars) => {
+        const total = prevCars.length;
+        const row0Count = Math.ceil(total / 2);
+        return prevCars.map((car, index) => {
+          if (car.id !== id) return car;
+          let row, col, rowCount;
+          if (index < row0Count) {
+            row = 0;
+            col = index;
+            rowCount = row0Count;
+          } else {
+            row = 1;
+            col = index - row0Count;
+            rowCount = total - row0Count;
+          }
+          return computeCarProps(car, row, col, rowCount);
+        });
+      });
+    },
+    [computeCarProps]
+  );
 
-  const applyScenePreset = () => {
-    setBrightness(scenePreset.brightness);
-    setBloomIntensity(scenePreset.bloomIntensity);
-    setLuminanceThreshold(scenePreset.luminanceThreshold);
-    setLuminanceSmoothing(scenePreset.luminanceSmoothing);
-    setCameraPosition(scenePreset.cameraPosition);
-    setCameraRotation(scenePreset.cameraRotation);
-    if (controlsRef.current) {
-      const cam = controlsRef.current.object;
-      cam.position.set(...scenePreset.cameraPosition);
-      cam.rotation.set(...scenePreset.cameraRotation);
-    }
-  };
-
-  // Reset all cars in both rows to their row presets (with appropriate z offsets and rotation offsets).
-  const resetAllCars = () => {
-    setCars((prevCars) =>
-      prevCars.map((car) => {
-        const rowPreset = car.rowSide === "left" ? leftRowPreset : rightRowPreset;
-        const rotationOffset = car.preset.rotationOffset || [0, 0, 0];
-        const finalRot = [
-          rowPreset.rotation[0] + rotationOffset[0],
-          rowPreset.rotation[1] + rotationOffset[1],
-          rowPreset.rotation[2] + rotationOffset[2],
-        ];
-        const basePos = rowPreset.position;
-        // Get the index within the car's row.
-        const rowCars = prevCars.filter((c) => c.rowSide === car.rowSide);
-        const indexInRow = rowCars.findIndex((c) => c.id === car.id);
-        return {
-          ...car,
-          scale: rowPreset.scale,
-          position: [basePos[0], basePos[1], basePos[2] + indexInRow * 1.8],
-          rotation: finalRot,
-          emissiveIntensity: rowPreset.emissiveIntensity,
-          emissiveColor: rowPreset.emissiveColor,
-        };
-      })
-    );
-  };
-
-  // Reset a single car to its preset values.
-  const resetCar = (id) => {
-    setCars((prevCars) =>
-      prevCars.map((car) => {
-        if (car.id !== id) return car; // Leave other cars unchanged.
-        const rowPreset = car.rowSide === "left" ? leftRowPreset : rightRowPreset;
-        const rotationOffset = car.preset.rotationOffset || [0, 0, 0];
-        const finalRot = [
-          rowPreset.rotation[0] + rotationOffset[0],
-          rowPreset.rotation[1] + rotationOffset[1],
-          rowPreset.rotation[2] + rotationOffset[2],
-        ];
-        // Compute the car's index in its row.
-        const rowCars = prevCars.filter((c) => c.rowSide === car.rowSide);
-        const indexInRow = rowCars.findIndex((c) => c.id === car.id);
-        return {
-          ...car,
-          scale: rowPreset.scale,
-          position: [
-            rowPreset.position[0],
-            rowPreset.position[1],
-            rowPreset.position[2] + indexInRow * 1.8,
-          ],
-          rotation: finalRot,
-          emissiveIntensity: rowPreset.emissiveIntensity,
-          emissiveColor: rowPreset.emissiveColor,
-        };
-      })
-    );
-  };
-
-  // Call resetAllCars and applyScenePreset on mount.
-  useEffect(() => {
-    resetAllCars();
-    applyScenePreset();
-  }, []);
-
-  // A helper to update a specific car’s state.
-  const updateCar = (id, updatedProps) => {
+  const updateCar = useCallback((id, updatedProps) => {
     setCars((prevCars) =>
       prevCars.map((car) => (car.id === id ? { ...car, ...updatedProps } : car))
     );
-  };
+  }, []);
 
-  // Set the clicked car's controls to visible and hide others.
-  const setActiveCar = (id) => {
+  const setActiveCar = useCallback((id) => {
     setCars((prevCars) =>
-      prevCars.map((car) => ({
-        ...car,
-        showControls: car.id === id,
-      }))
+      prevCars.map((car) => ({ ...car, showControls: car.id === id }))
     );
-  };
+  }, []);
 
-  // Fullscreen toggle for the canvas container.
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
+  // Studio bounds for movement.
+  const studioBounds = useMemo(
+    () =>
+      new THREE.Box3(
+        new THREE.Vector3(-15, -10, -19),
+        new THREE.Vector3(15, 10, 100)
+      ),
+    []
+  );
+
+  // Fullscreen toggle.
+  const containerRef = useRef();
+  const toggleFullScreen = useCallback(() => {
+    if (!document.fullscreenElement && containerRef.current) {
       containerRef.current.requestFullscreen();
     } else {
       document.exitFullscreen();
     }
-  };
+  }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+      }}
+    >
       {/* Canvas Container with Fullscreen Button */}
-      <div ref={containerRef} style={{ position: "relative", width: "90vw", height: "50vh" }}>
+      <div
+        ref={containerRef}
+        style={{ position: "relative", width: "60vw", height: "70vh" }}
+      >
         <Canvas
-          style={{ width: "100%", height: "100%", background: "#202024" }}
-          camera={{ position: cameraPosition, fov: 50 }}
-          gl={{ toneMapping: THREE.NoToneMapping }}
+          style={{ width: "100%", height: "100%", background: "black" }}
+          camera={{ position: [0, 1.5, 28], fov: 70 }}
+          gl={{ toneMapping: THREE.NoToneMapping, localClippingEnabled: true }}
         >
+          {/* The curved sheet that wraps around the scene */}
+          <BackgroundSheet />
           <ambientLight intensity={brightness} />
           <directionalLight position={[5, 5, 5]} intensity={1} />
           <Showroom />
@@ -282,27 +644,29 @@ function CarRoom() {
             <CarModel
               key={car.id}
               url={car.url}
-              scale={car.scale}
+              scale={car.baseScale * (car.scaleMultiplier || 1)}
               position={car.position}
               rotation={car.rotation}
               emissiveIntensity={car.emissiveIntensity}
               emissiveColor={car.emissiveColor}
               onCarClick={() => setActiveCar(car.id)}
+              onLoadCenter={(center) => updateCar(car.id, { center })}
+              rotationSpeed={car.row === 0 ? 0.5 : -0.5}
             />
           ))}
-          <OrbitControls
-            ref={controlsRef}
-            onChange={() => {
-              const cam = controlsRef.current.object;
-              setCameraPosition([cam.position.x, cam.position.y, cam.position.z]);
-              setCameraRotation([cam.rotation.x, cam.rotation.y, cam.rotation.z]);
-            }}
-          />
+          {/* Render the car labels as a separate mapping */}
+          <CarLabels cars={cars} />
+          <PointerLockControls />
+          <FirstPersonMovement speed={5} bounds={studioBounds} />
+          <CameraTracker setCameraPosition={setCameraPosition} />
           <EffectComposer>
-            <Bloom luminanceThreshold={luminanceThreshold} luminanceSmoothing={luminanceSmoothing} intensity={bloomIntensity} />
+            <Bloom
+              luminanceThreshold={luminanceThreshold}
+              luminanceSmoothing={luminanceSmoothing}
+              intensity={bloomIntensity}
+            />
           </EffectComposer>
         </Canvas>
-        {/* Fullscreen Button */}
         <button
           onClick={toggleFullScreen}
           style={{
@@ -316,157 +680,42 @@ function CarRoom() {
         >
           Fullscreen
         </button>
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            left: "10px",
+            padding: "6px 10px",
+            background: "rgba(0,0,0,0.6)",
+            color: "white",
+            zIndex: 1,
+          }}
+        >
+          Click to enter and use WASD + mouse look
+        </div>
       </div>
 
       {/* Controls Panel */}
-      <div style={{ display: "flex", flexDirection: "row", gap: "20px", color: "white", padding: "10px", width: "90vw" }}>
-        {/* Render the control panel for the active car */}
-        {cars.filter((car) => car.showControls).map((car) => (
-          <div key={car.id} style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
-            <h3>{car.name} Effects</h3>
-            <label>
-              Scale:{" "}
-              <input
-                type="range"
-                min="0.1"
-                max="2"
-                step="0.1"
-                value={car.scale}
-                onChange={(e) => updateCar(car.id, { scale: parseFloat(e.target.value) })}
-              />
-            </label>
-            <br />
-            <label>
-              Position X:{" "}
-              <input
-                type="range"
-                min="-5"
-                max="5"
-                step="0.1"
-                value={car.position[0]}
-                onChange={(e) =>
-                  updateCar(car.id, { position: [parseFloat(e.target.value), car.position[1], car.position[2]] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Position Y:{" "}
-              <input
-                type="range"
-                min="-5"
-                max="5"
-                step="0.1"
-                value={car.position[1]}
-                onChange={(e) =>
-                  updateCar(car.id, { position: [car.position[0], parseFloat(e.target.value), car.position[2]] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Position Z:{" "}
-              <input
-                type="range"
-                min="-5"
-                max="5"
-                step="0.1"
-                value={car.position[2]}
-                onChange={(e) =>
-                  updateCar(car.id, { position: [car.position[0], car.position[1], parseFloat(e.target.value)] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Rotation X:{" "}
-              <input
-                type="range"
-                min="-3.14"
-                max="3.14"
-                step="0.01"
-                value={car.rotation[0]}
-                onChange={(e) =>
-                  updateCar(car.id, { rotation: [parseFloat(e.target.value), car.rotation[1], car.rotation[2]] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Rotation Y:{" "}
-              <input
-                type="range"
-                min="-3.14"
-                max="3.14"
-                step="0.01"
-                value={car.rotation[1]}
-                onChange={(e) =>
-                  updateCar(car.id, { rotation: [car.rotation[0], parseFloat(e.target.value), car.rotation[2]] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Rotation Z:{" "}
-              <input
-                type="range"
-                min="-3.14"
-                max="3.14"
-                step="0.01"
-                value={car.rotation[2]}
-                onChange={(e) =>
-                  updateCar(car.id, { rotation: [car.rotation[0], car.rotation[1], parseFloat(e.target.value)] })
-                }
-              />
-            </label>
-            <br />
-            <label>
-              Emissive Intensity:{" "}
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={car.emissiveIntensity}
-                onChange={(e) => updateCar(car.id, { emissiveIntensity: parseFloat(e.target.value) })}
-              />
-            </label>
-            <br />
-            <label>
-              Emissive Color:{" "}
-              <input
-                type="range"
-                min="0"
-                max="0.3"
-                step="0.01"
-                value={car.emissiveColor}
-                onChange={(e) => updateCar(car.id, { emissiveColor: parseFloat(e.target.value) })}
-              />
-            </label>
-            <pre style={{ color: "white", marginTop: "10px" }}>
-              {JSON.stringify(
-                {
-                  scale: car.scale,
-                  position: car.position,
-                  rotation: car.rotation,
-                  emissiveIntensity: car.emissiveIntensity,
-                  emissiveColor: car.emissiveColor,
-                },
-                null,
-                2
-              )}
-            </pre>
-            
-            <br />
-            <button
-              onClick={() => resetCar(car.id)}
-              style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}
-            >
-              Reset {car.name}
-            </button>
-          </div>
-        ))}
-        {/* Scene Effects Controls (shared) */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: "20px",
+          color: "white",
+          padding: "10px",
+          width: "90vw",
+        }}
+      >
+        {cars
+          .filter((car) => car.showControls)
+          .map((car) => (
+            <CarControlPanel
+              key={car.id}
+              car={car}
+              updateCar={updateCar}
+              resetCar={resetCar}
+            />
+          ))}
         <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
           <h3>Scene Effects</h3>
           <label>
@@ -501,7 +750,9 @@ function CarRoom() {
               max="2"
               step="0.1"
               value={luminanceThreshold}
-              onChange={(e) => setLuminanceThreshold(parseFloat(e.target.value))}
+              onChange={(e) =>
+                setLuminanceThreshold(parseFloat(e.target.value))
+              }
             />
           </label>
           <br />
@@ -513,22 +764,29 @@ function CarRoom() {
               max="1"
               step="0.1"
               value={luminanceSmoothing}
-              onChange={(e) => setLuminanceSmoothing(parseFloat(e.target.value))}
+              onChange={(e) =>
+                setLuminanceSmoothing(parseFloat(e.target.value))
+              }
             />
           </label>
           <br />
           <pre style={{ color: "white", marginTop: "10px" }}>
             {JSON.stringify(
-              { brightness, bloomIntensity, luminanceThreshold, luminanceSmoothing, cameraPosition, cameraRotation },
+              {
+                brightness,
+                bloomIntensity,
+                luminanceThreshold,
+                luminanceSmoothing,
+                cameraPosition,
+              },
               null,
               2
             )}
           </pre>
-          <button onClick={applyScenePreset} style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}>
-            Apply Scene Preset
-          </button>
-          <br />
-          <button onClick={resetAllCars} style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}>
+          <button
+            onClick={resetAllCars}
+            style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}
+          >
             Reset All Cars
           </button>
         </div>

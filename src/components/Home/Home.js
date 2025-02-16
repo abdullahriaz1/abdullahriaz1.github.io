@@ -8,6 +8,7 @@ import Gallery from '../Gallery.js';
 import Chess from '../Chess/ChessGame.js';
 import Destiny from '../Destiny/Destiny.js';
 import CarRoom from '../CarRoom.js';
+import MusicPlayer from '../MusicPlayer.js';
 function Home() {
   return (
     <div className="home" id="home">
@@ -48,11 +49,15 @@ function Home() {
         {/* <Destiny /> */}
       </div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {<CarRoom />}
+        { <CarRoom /> }
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <MusicPlayer />
       </div>
 
 
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      {/*<div style={{ display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '90%' }}>
           <Projects />
         </div>
@@ -61,7 +66,7 @@ function Home() {
       <hr />
       <Skills />
       <hr />
-      <Contact />
+      <Contact />*/}
     </div>
   );
 }
