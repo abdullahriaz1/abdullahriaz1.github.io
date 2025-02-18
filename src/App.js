@@ -21,7 +21,7 @@ function App() {
       <div className='App'>
         
         <Home />
-        <Footer />
+        {/*<Footer />*/}
       </div>
     </Router>
   );

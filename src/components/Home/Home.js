@@ -1,14 +1,10 @@
 import React from 'react';
-import picture from './picture.PNG';
-import Projects from '../Projects/Projects.js';
 import Header from '../Header.js';
-import Contact from '../Contact/Contact.js';
+import Projects from '../Projects/Projects.js';
 import Skills from '../Skills.js';
-import Gallery from '../Gallery.js';
-import Chess from '../Chess/ChessGame.js';
-import Destiny from '../Destiny/Destiny.js';
-import CarRoom from '../CarRoom.js';
-import MusicPlayer from '../MusicPlayer.js';
+import Contact from '../Contact/Contact.js';
+import Arcade from '../Arcade.js'; // Import the new Arcade component
+
 function Home() {
   return (
     <div className="home" id="home">
@@ -23,41 +19,22 @@ function Home() {
           textAlign: 'center'
         }}
       >
-        <div className="home-intro-text">
+        <div className="home-intro-text" style={{paddingBottom: "40px"}}>
           <h1>Hello, I'm Abdullah Riaz!</h1>
           <p>
             Software Engineer Intern @ The Guestbook
             <br />
-            Computer Engineering B.S. with Minor in Computer Science - UC Santa Cruz, Dec. 2024
+            UC Santa Cruz, Computer Engineering C/O 2025
           </p>
         </div>
       </div>
 
       <hr />
 
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '90%' }}>
-          {/* <Gallery /> */}
-        </div>
-      </div>
-
-      {/* Chess component centered horizontally */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {/* <Chess /> */}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        {/* <Destiny /> */}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        { <CarRoom /> }
-      </div>
+      {/* Render the Arcade component */}
+      <Arcade />
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <MusicPlayer />
-      </div>
-
-
-      {/*<div style={{ display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '90%' }}>
           <Projects />
         </div>
@@ -66,7 +43,7 @@ function Home() {
       <hr />
       <Skills />
       <hr />
-      <Contact />*/}
+      <Contact />
     </div>
   );
 }

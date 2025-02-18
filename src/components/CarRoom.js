@@ -7,13 +7,13 @@ import React, {
   useCallback,
 } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
-import { PointerLockControls, useGLTF, Text } from "@react-three/drei";
+import { useGLTF, Text } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { ParametricGeometry } from "three/examples/jsm/geometries/ParametricGeometry";
 import backgroundImage from "../photo-gallery/wp9262282-european-village-4k-wallpapers.jpg";
 
-// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Helper: Compute the center of an object's bounding box.
 const computeModelCenter = (object) => {
   const box = new THREE.Box3().setFromObject(object);
@@ -25,36 +25,26 @@ const computeModelCenter = (object) => {
 function BackgroundSheet({ xOffset = 0, yOffset = -20, zOffset = 29 }) {
   const texture = useLoader(THREE.TextureLoader, backgroundImage);
 
-  // Configure texture once loaded: flip horizontally
   useEffect(() => {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    // Flip horizontally by setting repeat.x to -1 and adjusting offset.x
     texture.repeat.set(-1, 1);
     texture.needsUpdate = true;
   }, [texture]);
 
-  // Create a parametric function for a surface with double curvature.
   const parametricFunc = (u, v, target) => {
-    // Map u and v to angles for horizontal (theta) and vertical (phi) curvatures.
     const theta = THREE.MathUtils.lerp(-Math.PI / 2, Math.PI / 2, u);
     const phi = THREE.MathUtils.lerp(-Math.PI / 2, Math.PI / 2, v);
-
-    // Define radii for horizontal and vertical curvatures.
     const horizontalRadius = 100;
     const verticalRadius = 100;
-
-    // Calculate positions:
     const x = horizontalRadius * Math.sin(theta);
     const z = horizontalRadius * Math.cos(theta) * Math.cos(phi);
     const y = verticalRadius * Math.sin(phi);
-
     target.set(x, y, z);
   };
 
-  // Create the geometry using ParametricGeometry
   const geometry = useMemo(() => {
-    const segments = 64;
+    const segments = 32;
     return new ParametricGeometry(parametricFunc, segments, segments);
   }, []);
 
@@ -66,9 +56,6 @@ function BackgroundSheet({ xOffset = 0, yOffset = -20, zOffset = 29 }) {
   );
 }
 
-// ----------------------------------------------------------------------------
-// CarModel: Loads a GLTF model, applies material settings, centers it,
-// and continuously rotates it around the y-axis.
 function CarModel({
   url,
   scale,
@@ -78,7 +65,7 @@ function CarModel({
   emissiveColor,
   onCarClick,
   onLoadCenter,
-  rotationSpeed = 0.5, // default rotation speed if not provided
+  rotationSpeed = 0.5,
 }) {
   const { scene } = useGLTF(url);
   const clonedScene = useMemo(() => scene.clone(true), [scene]);
@@ -136,13 +123,9 @@ function CarModel({
   );
 }
 
-// ----------------------------------------------------------------------------
-// CarLabels: Map through the cars and place a text label at y = 3,
-// using each car's x and z positions.
 function CarLabels({ cars }) {
-  
   return cars.map((car) => {
-    const row = car.row ? -1 : 1; // Define the constant inside the function body
+    const row = car.row ? -1 : 1;
     return (
       <Text
         key={car.id + "-label"}
@@ -159,19 +142,14 @@ function CarLabels({ cars }) {
   });
 }
 
-// ----------------------------------------------------------------------------
-// Showroom: Loads and displays the studio environment.
 function Showroom() {
   const { scene } = useGLTF("/3d-assets/studio_v1_for_car/scene.gltf");
 
-  // Create a clipping plane along the x-axis.
-  // Adjust the normal vector and constant to control the clipping.
   const clippingPlane = useMemo(
     () => new THREE.Plane(new THREE.Vector3(0, 0, -30), 1),
     []
   );
 
-  // Traverse through the scene to apply the clipping plane to each mesh's material.
   scene.traverse((child) => {
     if (child.isMesh) {
       if (Array.isArray(child.material)) {
@@ -189,8 +167,6 @@ function Showroom() {
   return <primitive object={scene} scale={2} />;
 }
 
-// ----------------------------------------------------------------------------
-// CarControlPanel: A memoized sub-component for a car's control UI.
 const CarControlPanel = React.memo(({ car, updateCar, resetCar }) => {
   return (
     <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
@@ -299,8 +275,6 @@ const CarControlPanel = React.memo(({ car, updateCar, resetCar }) => {
   );
 });
 
-// ----------------------------------------------------------------------------
-// FirstPersonMovement: Listens for WASD keys and moves the camera.
 function FirstPersonMovement({ speed = 12, bounds }) {
   const { camera } = useThree();
   const keys = useRef({});
@@ -346,8 +320,6 @@ function FirstPersonMovement({ speed = 12, bounds }) {
   return null;
 }
 
-// ----------------------------------------------------------------------------
-// CameraTracker: Updates the parent state with the current camera position.
 function CameraTracker({ setCameraPosition }) {
   const { camera } = useThree();
   useFrame(() => {
@@ -360,10 +332,50 @@ function CameraTracker({ setCameraPosition }) {
   return null;
 }
 
-// ----------------------------------------------------------------------------
-// CarRoom: The main component.
+// -----------------------------------------------------------------------------
+// CustomMouseLook: Uses pointer lock and sums mouse movement deltas.
+function CustomMouseLook({ sensitivity = 0.005 }) {
+  const { camera, gl } = useThree();
+  const yawRef = useRef(0); // left/right rotation
+  const pitchRef = useRef(0); // up/down rotation
+  const isLocked = useRef(false);
+
+  const onMouseMove = (e) => {
+    if (!isLocked.current) return;
+    yawRef.current -= e.movementX * sensitivity;
+    pitchRef.current -= e.movementY * sensitivity;
+    pitchRef.current = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitchRef.current));
+  };
+
+  useEffect(() => {
+    const handleClick = () => {
+      gl.domElement.requestPointerLock();
+    };
+    gl.domElement.addEventListener("click", handleClick);
+
+    const handlePointerLockChange = () => {
+      isLocked.current = document.pointerLockElement === gl.domElement;
+    };
+    document.addEventListener("pointerlockchange", handlePointerLockChange);
+    document.addEventListener("mousemove", onMouseMove);
+
+    return () => {
+      gl.domElement.removeEventListener("click", handleClick);
+      document.removeEventListener("pointerlockchange", handlePointerLockChange);
+      document.removeEventListener("mousemove", onMouseMove);
+    };
+  }, [gl.domElement, sensitivity]);
+
+  useFrame(() => {
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = yawRef.current;
+    camera.rotation.x = pitchRef.current;
+  });
+
+  return null;
+}
+
 function CarRoom() {
-  // Common preset for all cars.
   const commonPreset = useMemo(
     () => ({
       position: [0, 0.8, 9],
@@ -375,11 +387,9 @@ function CarRoom() {
     []
   );
 
-  // Constants for positioning cars in two rows.
   const rowXPositions = useMemo(() => [-4, 3], []);
   const zSpacing = 6;
 
-  // Combined car configurations.
   const carsConfig = useMemo(
     () => [
       {
@@ -400,12 +410,6 @@ function CarRoom() {
         name: "McLaren F1",
         url: "/3d-assets/mclaren_f1_lm/scene.gltf",
         scaleMultiplier: 0.23,
-      },
-      {
-        id: "mercedes-benz-slr-mclaren",
-        name: "Mercedes-Benz SLR McLaren",
-        url: "/3d-assets/mercedes-benz_slr_mclaren/scene.gltf",
-        scaleMultiplier: 0.025,
       },
       {
         id: "porsche-918-spyder-2015",
@@ -432,12 +436,6 @@ function CarRoom() {
         scaleMultiplier: 108,
       },
       {
-        id: "2004-porsche-carrera-gt",
-        name: "2004 Porsche Carrera GT",
-        url: "/3d-assets/2004_porsche_carrera_gt/scene.gltf",
-        scaleMultiplier: 108,
-      },
-      {
         id: "2007-koenigsegg-ccgt-gt1",
         name: "2007 Koenigsegg CCGT GT1",
         url: "/3d-assets/2007_koenigsegg_ccgt_gt1/scene.gltf",
@@ -456,24 +454,10 @@ function CarRoom() {
         scaleMultiplier: 2,
         rotationOffset: [0, -1.56, 0],
       },
-      {
-        id: "nissan-gt-r-gt500",
-        name: "Nissan GT-R GT500",
-        url: "/3d-assets/nissan_gt-r_gt500/scene.gltf",
-        scaleMultiplier: 1,
-        positionOffset: [0, 0.2, 0],
-      },
-      {
-        id: "porsche-911-gt2-rs-with-angle-eyes",
-        name: "Porsche 911 GT2 RS with Angle Eyes",
-        url: "/3d-assets/porsche_911_gt2_rs_with_angle_eyes/scene.gltf",
-        scaleMultiplier: 0.28,
-      },
     ],
     []
   );
 
-  // Helper: Compute a car's properties based on its preset and layout.
   const computeCarProps = useCallback(
     (car, row, col, rowCount) => {
       const finalX = rowXPositions[row];
@@ -494,7 +478,7 @@ function CarRoom() {
 
       return {
         ...car,
-        row, // Add the row index to determine rotation speed later
+        row,
         baseScale: car.baseScale !== undefined ? car.baseScale : commonPreset.scale,
         position: finalPos,
         rotation: finalRot,
@@ -507,7 +491,6 @@ function CarRoom() {
     [commonPreset, rowXPositions, zSpacing]
   );
 
-  // Initialize cars into two rows.
   const initializeRowCars = useCallback(
     (carsArray) => {
       const total = carsArray.length;
@@ -530,17 +513,13 @@ function CarRoom() {
   );
 
   const [cars, setCars] = useState(() => initializeRowCars(carsConfig));
-
-  // Scene Effects state.
   const [brightness, setBrightness] = useState(0.5);
-  const [bloomIntensity, setBloomIntensity] = useState(0.3);
-  const [luminanceThreshold, setLuminanceThreshold] = useState(1);
-  const [luminanceSmoothing, setLuminanceSmoothing] = useState(0.9);
-
-  // State to store the current camera position.
+  const [bloomIntensity, setBloomIntensity] = useState(0);
+  const [luminanceThreshold, setLuminanceThreshold] = useState(0);
+  const [luminanceSmoothing, setLuminanceSmoothing] = useState(0);
   const [cameraPosition, setCameraPosition] = useState([0, 0, 0]);
+  const [showControlPanel, setShowControlPanel] = useState(false);
 
-  // Reset functions.
   const resetAllCars = useCallback(() => {
     setCars((prevCars) => {
       const total = prevCars.length;
@@ -597,7 +576,6 @@ function CarRoom() {
     );
   }, []);
 
-  // Studio bounds for movement.
   const studioBounds = useMemo(
     () =>
       new THREE.Box3(
@@ -607,11 +585,11 @@ function CarRoom() {
     []
   );
 
-  // Fullscreen toggle.
-  const containerRef = useRef();
+  const fullscreenContainerRef = useRef();
+
   const toggleFullScreen = useCallback(() => {
-    if (!document.fullscreenElement && containerRef.current) {
-      containerRef.current.requestFullscreen();
+    if (!document.fullscreenElement && fullscreenContainerRef.current) {
+      fullscreenContainerRef.current.requestFullscreen();
     } else {
       document.exitFullscreen();
     }
@@ -625,9 +603,37 @@ function CarRoom() {
         alignItems: "center",
       }}
     >
-      {/* Canvas Container with Fullscreen Button */}
+      {/* Fullscreen and control panel toggle buttons placed above the canvas */}
       <div
-        ref={containerRef}
+        style={{
+          width: "60vw",
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "10px",
+        }}
+      >
+        <button
+          onClick={toggleFullScreen}
+          style={{
+            padding: "8px 12px",
+            cursor: "pointer",
+          }}
+        >
+          Fullscreen
+        </button>
+        <button
+          onClick={() => setShowControlPanel((prev) => !prev)}
+          style={{
+            padding: "8px 12px",
+            cursor: "pointer",
+          }}
+        >
+          {showControlPanel ? "Hide" : "Show"} Control Panel
+        </button>
+      </div>
+
+      <div
+        ref={fullscreenContainerRef}
         style={{ position: "relative", width: "60vw", height: "70vh" }}
       >
         <Canvas
@@ -635,7 +641,7 @@ function CarRoom() {
           camera={{ position: [0, 1.5, 28], fov: 70 }}
           gl={{ toneMapping: THREE.NoToneMapping, localClippingEnabled: true }}
         >
-          {/* The curved sheet that wraps around the scene */}
+          <CustomMouseLook />
           <BackgroundSheet />
           <ambientLight intensity={brightness} />
           <directionalLight position={[5, 5, 5]} intensity={1} />
@@ -654,9 +660,7 @@ function CarRoom() {
               rotationSpeed={car.row === 0 ? 0.5 : -0.5}
             />
           ))}
-          {/* Render the car labels as a separate mapping */}
           <CarLabels cars={cars} />
-          <PointerLockControls />
           <FirstPersonMovement speed={5} bounds={studioBounds} />
           <CameraTracker setCameraPosition={setCameraPosition} />
           <EffectComposer>
@@ -667,130 +671,105 @@ function CarRoom() {
             />
           </EffectComposer>
         </Canvas>
-        <button
-          onClick={toggleFullScreen}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            padding: "8px 12px",
-            cursor: "pointer",
-            zIndex: 1,
-          }}
-        >
-          Fullscreen
-        </button>
-        <div
-          style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            padding: "6px 10px",
-            background: "rgba(0,0,0,0.6)",
-            color: "white",
-            zIndex: 1,
-          }}
-        >
-          Click to enter and use WASD + mouse look
-        </div>
       </div>
 
-      {/* Controls Panel */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          gap: "20px",
-          color: "white",
-          padding: "10px",
-          width: "90vw",
-        }}
-      >
-        {cars
-          .filter((car) => car.showControls)
-          .map((car) => (
-            <CarControlPanel
-              key={car.id}
-              car={car}
-              updateCar={updateCar}
-              resetCar={resetCar}
-            />
-          ))}
-        <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
-          <h3>Scene Effects</h3>
-          <label>
-            Brightness:{" "}
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={brightness}
-              onChange={(e) => setBrightness(parseFloat(e.target.value))}
-            />
-          </label>
-          <br />
-          <label>
-            Bloom Intensity:{" "}
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={bloomIntensity}
-              onChange={(e) => setBloomIntensity(parseFloat(e.target.value))}
-            />
-          </label>
-          <br />
-          <label>
-            Luminance Threshold:{" "}
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={luminanceThreshold}
-              onChange={(e) =>
-                setLuminanceThreshold(parseFloat(e.target.value))
-              }
-            />
-          </label>
-          <br />
-          <label>
-            Luminance Smoothing:{" "}
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={luminanceSmoothing}
-              onChange={(e) =>
-                setLuminanceSmoothing(parseFloat(e.target.value))
-              }
-            />
-          </label>
-          <br />
-          <pre style={{ color: "white", marginTop: "10px" }}>
-            {JSON.stringify(
-              {
-                brightness,
-                bloomIntensity,
-                luminanceThreshold,
-                luminanceSmoothing,
-                cameraPosition,
-              },
-              null,
-              2
-            )}
-          </pre>
-          <button
-            onClick={resetAllCars}
-            style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}
-          >
-            Reset All Cars
-          </button>
+      {/* Control Panel Section */}
+      {showControlPanel && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: "20px",
+            color: "white",
+            padding: "10px",
+            width: "90vw",
+          }}
+        >
+          {cars
+            .filter((car) => car.showControls)
+            .map((car) => (
+              <CarControlPanel
+                key={car.id}
+                car={car}
+                updateCar={updateCar}
+                resetCar={resetCar}
+              />
+            ))}
+          <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
+            <h3>Scene Effects</h3>
+            <label>
+              Brightness:{" "}
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={brightness}
+                onChange={(e) => setBrightness(parseFloat(e.target.value))}
+              />
+            </label>
+            <br />
+            <label>
+              Bloom Intensity:{" "}
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={bloomIntensity}
+                onChange={(e) => setBloomIntensity(parseFloat(e.target.value))}
+              />
+            </label>
+            <br />
+            <label>
+              Luminance Threshold:{" "}
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={luminanceThreshold}
+                onChange={(e) =>
+                  setLuminanceThreshold(parseFloat(e.target.value))
+                }
+              />
+            </label>
+            <br />
+            <label>
+              Luminance Smoothing:{" "}
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={luminanceSmoothing}
+                onChange={(e) =>
+                  setLuminanceSmoothing(parseFloat(e.target.value))
+                }
+              />
+            </label>
+            <br />
+            <pre style={{ color: "white", marginTop: "10px" }}>
+              {JSON.stringify(
+                {
+                  brightness,
+                  bloomIntensity,
+                  luminanceThreshold,
+                  luminanceSmoothing,
+                },
+                null,
+                2
+              )}
+            </pre>
+            <button
+              onClick={resetAllCars}
+              style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}
+            >
+              Reset All Cars
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

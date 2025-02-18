@@ -1,15 +1,40 @@
-import React, { useEffect } from 'react';
-import { useSprings, animated } from '@react-spring/web';
+import React, { useEffect, useState, useRef } from 'react';
+import { useSprings, animated, config, to } from '@react-spring/web';
 
-//
-// 1) Animated Line Group Component
-//
-function AnimatedLineGroup({ groupClass, rotation }) {
+// --- Optional: Force re-renders (if needed for other animations) ---
+function useIntervalRender() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 16); // roughly 60fps
+    return () => clearInterval(interval);
+  }, []);
+}
+
+// --- Circles Component (unchanged) ---
+function Circles() {
+  return (
+    <>
+      <span className="circle circle--1" />
+      <span className="circle circle--2" />
+      <span className="circle circle--3" />
+      <span className="circle circle--4" />
+    </>
+  );
+}
+
+// --- Animated Line Group ---
+// Now accepts x, y, and rotation, and applies a combined transform.
+function AnimatedLineGroup({ groupClass, springProps }) {
   return (
     <animated.div
       className={`line-group ${groupClass}`}
       style={{
-        transform: rotation.to(r => `rotate(${r}deg)`),
+        transform: to(
+          [springProps.x, springProps.y, springProps.rotation],
+          (x, y, r) => `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`
+        ),
       }}
     >
       <span className="line line--1" />
@@ -20,74 +45,121 @@ function AnimatedLineGroup({ groupClass, rotation }) {
   );
 }
 
-//
-// 2) Animated Shape Group Component
-//
+// --- Animated Shape Group (unchanged) ---
 function AnimatedShapeGroup({ shapes }) {
   return (
     <div className="shape-group">
-      {shapes.map((props, index) => (
-        <animated.span
-          key={index}
-          className={`shape shape--${index + 1}`}
-          style={{
-            transform: props.x.to(
-              (x, y, r) =>
-                `translate3d(${x}rem, ${y}rem, 0) rotate(${r}deg)`
-            ),
-          }}
-        />
-      ))}
+      {shapes.map((springProps, index) => {
+        const transform = to(
+          [springProps.x, springProps.y, springProps.r],
+          (x, y, r) => `translate3d(${x}rem, ${y}rem, 0) rotate(${r}deg)`
+        );
+        return (
+          <animated.span
+            key={index}
+            className={`shape shape--${index + 1}`}
+            style={{ transform }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-//
-// 3) Main Destiny Component
-//
+// --- Main Destiny Component ---
 export default function Destiny() {
-  // --- Line Rotation Animations (3 groups) ---
+  // (Optional) force re-renders if you need them for other animations
+  useIntervalRender();
+
+  // The container is 50rem x 50rem (with 1rem = 10px, that’s 500px)
+  const containerSize = 500;
+
+  // --- Line Groups: 3 total ---
+  // Each group has x, y, and rotation.
   const [lineSprings, lineApi] = useSprings(3, () => ({
-    rotation: Math.random() * 360, // Start at random angle
-    config: { tension: 80, friction: 10 },
+    x: Math.random() * containerSize,
+    y: Math.random() * containerSize,
+    rotation: Math.random() * 360,
+    config: { mass: 1, tension: 170, friction: 26 },
   }));
 
-  // --- Shape Transform Animations (4 shapes) ---
+  // Set up velocities (in pixels per frame, and degrees per frame for rotation)
+  const velocitiesRef = useRef(
+    Array.from({ length: 3 }, () => ({
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      vr: (Math.random() - 0.5) * 2,
+    }))
+  );
+
+  // Use a requestAnimationFrame loop to update positions and bounce them.
+  useEffect(() => {
+    let animationFrameId;
+
+    const animate = () => {
+      lineApi.start((index, curr) => {
+        // Get current values (using .get() from the animated value)
+        const { x, y, rotation } = curr;
+        let newX = x.get();
+        let newY = y.get();
+        let newRotation = rotation.get();
+
+        // Retrieve velocities for this group
+        const { vx, vy, vr } = velocitiesRef.current[index];
+
+        // Update positions and rotation
+        newX += vx;
+        newY += vy;
+        newRotation += vr;
+
+        // Bounce off the container edges (assume container from 0 to containerSize)
+        if (newX < 0 || newX > containerSize) {
+          velocitiesRef.current[index].vx *= -1;
+          newX = Math.max(0, Math.min(newX, containerSize));
+        }
+        if (newY < 0 || newY > containerSize) {
+          velocitiesRef.current[index].vy *= -1;
+          newY = Math.max(0, Math.min(newY, containerSize));
+        }
+
+        return { x: newX, y: newY, rotation: newRotation, immediate: true };
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [lineApi, containerSize]);
+
+  // --- Shapes: 4 total (continue to randomize every 2 seconds) ---
   const [shapeSprings, shapeApi] = useSprings(4, () => ({
-    x: (Math.random() - 0.5) * 30, // Start at random positions
-    y: (Math.random() - 0.5) * 30,
-    r: Math.random() * 360,
-    config: { tension: 50, friction: 20 },
+    x: 0,
+    y: 0,
+    r: 0,
+    config: config.gentle,
   }));
 
-  // --- Update Animations Every 1s ---
   useEffect(() => {
     const interval = setInterval(() => {
-      lineApi.start(index => ({
-        rotation: Math.random() * 360, // New random angle
-      }));
-
-      shapeApi.start(index => ({
-        x: (Math.random() - 0.5) * 30, // Random positions
+      shapeApi.start(() => ({
+        x: (Math.random() - 0.5) * 30,
         y: (Math.random() - 0.5) * 30,
-        r: Math.random() * 360, // Random rotation
+        r: Math.random() * 360,
       }));
-    }, 1000);
-
+    }, 2000);
     return () => clearInterval(interval);
-  }, [lineApi, shapeApi]);
+  }, [shapeApi]);
 
   return (
     <>
       <style>{`
-        /* ----- Global Page Style ----- */
+        /* Global Styles */
         html, body {
           margin: 0; 
           padding: 0;
         }
-        html {
-          font-size: 10px;
-        }
+        html { font-size: 10px; }
         body {
           font-family: sans-serif;
           background: radial-gradient(#f9f9f9, #989898);
@@ -100,8 +172,6 @@ export default function Destiny() {
           width: 100vw;
           overflow: hidden;
         }
-
-        /* ----- Container ----- */
         .the-cade-6-unit-dank-af-anmation {
           width: 50rem;
           height: 50rem;
@@ -110,13 +180,42 @@ export default function Destiny() {
           align-items: center;
           justify-content: center;
         }
-
-        /* ----- Line Groups ----- */
+        .circle {
+          border: 1px solid #666;
+          border-radius: 50%;
+          position: absolute;
+          transition: width 1s ease, height 1s ease, opacity 1s ease;
+        }
+        .circle--1 {
+          width: calc(50rem - 50%);
+          height: calc(50rem - 50%);
+          opacity: 0.4;
+        }
+        .circle--2 {
+          width: calc(50rem - 56%);
+          height: calc(50rem - 56%);
+          opacity: 0.6;
+        }
+        .circle--3 {
+          width: calc(50rem - 44%);
+          height: calc(50rem - 44%);
+          opacity: 0.6;
+        }
+        .circle--4 {
+          width: calc(50rem - 50%);
+          height: calc(50rem - 50%);
+          opacity: 0.4;
+        }
         .line {
           width: 1px;
           height: 100%;
           position: absolute;
-          background: linear-gradient(transparent 0%, #666 40%, #666 60%, transparent 100%);
+          background: linear-gradient(
+            transparent 0%, 
+            #666 40%, 
+            #666 60%, 
+            transparent 100%
+          );
         }
         .line-group {
           position: absolute;
@@ -127,8 +226,22 @@ export default function Destiny() {
           height: 50rem;
           transform-origin: 50% 50%;
         }
-
-        /* ----- Shape Group ----- */
+        /* The positioning of each line within a group */
+        .line-group--1 .line--1 { left: 0%; }
+        .line-group--1 .line--2 { left: 33%; }
+        .line-group--1 .line--3 { left: 67%; }
+        .line-group--1 .line--4 { left: 100%; }
+        .line-group--2 .line--1 { left: 0%; }
+        .line-group--2 .line--2 { left: 33%; }
+        .line-group--2 .line--3 { left: 67%; }
+        .line-group--2 .line--4 { left: 100%; }
+        .line-group--3 {
+          width: calc(50rem / 2.8);
+        }
+        .line-group--3 .line--1 { left: 0%; }
+        .line-group--3 .line--2 { left: 33%; }
+        .line-group--3 .line--3 { left: 67%; }
+        .line-group--3 .line--4 { left: 100%; }
         .shape-group {
           position: absolute;
           display: flex;
@@ -143,29 +256,32 @@ export default function Destiny() {
         }
         .shape {
           position: absolute;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: calc(50rem / 4.51);
           height: calc(50rem / 4.51);
           border: 1px solid #666;
+          top: 50%;
+          left: 50%;
         }
       `}</style>
 
       <main>
         <div className="the-cade-6-unit-dank-af-anmation">
-          {/* 3 animated line groups */}
+          <Circles />
           <AnimatedLineGroup
             groupClass="line-group--1"
-            rotation={lineSprings[0].rotation}
+            springProps={lineSprings[0]}
           />
           <AnimatedLineGroup
             groupClass="line-group--2"
-            rotation={lineSprings[1].rotation}
+            springProps={lineSprings[1]}
           />
           <AnimatedLineGroup
             groupClass="line-group--3"
-            rotation={lineSprings[2].rotation}
+            springProps={lineSprings[2]}
           />
-
-          {/* 4 animated shapes */}
           <AnimatedShapeGroup shapes={shapeSprings} />
         </div>
       </main>

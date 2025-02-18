@@ -423,7 +423,7 @@ export default function ChessGame() {
           .reset-button {
             padding: 0.6rem 1.2rem;
             cursor: pointer;
-            background-color: #E67E22;
+            background-color: #e74c3c;
             border: none;
             border-radius: 4px;
             color: #ffffff;
@@ -444,7 +444,7 @@ export default function ChessGame() {
 
           /* Toastify overrides */
           .Toastify__toast--error {
-            background: #e74c3c;
+            background: white;
           }
           .Toastify__toast--success {
             background: #2ecc71;
