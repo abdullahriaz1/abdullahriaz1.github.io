@@ -457,7 +457,6 @@ export default function ChessGame() {
 
       <div className="chess-game-container">
         {/* Title */}
-        <div className="title">Chess Arcade</div>
 
         <div className="main-layout">
           {/* LEFT COLUMN: Chessboard */}

@@ -8,6 +8,9 @@ function Header() {
       <a href="/#home">
         <button className="button">Home</button>
       </a>
+      <a href="/#arcade">
+        <button className="button">Arcade</button>
+      </a>
       <a href="/#projects">
         <button className="button">Projects</button>
       </a>

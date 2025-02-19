@@ -32,12 +32,16 @@ function Home() {
       <hr />
 
       {/* Render the Arcade component */}
-      <Arcade />
+      <div id="arcade" style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: '90%', paddingTop: '40px', paddingBottom: "40px"}}>
+          <Arcade />
+        </div>
+      </div>  
+      
+      <hr />
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '90%' }}>
-          <Projects />
-        </div>
+        <Projects />  
       </div>
 
       <hr />

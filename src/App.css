@@ -46,7 +46,7 @@ body {
   position:fixed;
   top: 0;
   right: 0;
-  width: 100%;
+
   color: #fff;
   padding: 10px;
   
@@ -58,7 +58,7 @@ body {
   border-radius: 1px;
   transition-duration: 0.3s;
   border: 2px solid #ffffff;
-  padding: 2px 14px;
+  padding: 2px 10px;
   font-family: "Open Sans";
   font-size: calc(5px + 2vmin);
 

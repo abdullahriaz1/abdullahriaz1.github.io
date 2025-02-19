@@ -4,6 +4,36 @@ import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { TextureLoader } from "three";
 import "./MusicPlayer.css";
 
+// Example JSON data for songs.
+// You could also import this from an external JSON file.
+const songsData = [
+  {
+    file: "IV. Allegro Volto.mp3",
+    songName: "String Quartet No.19 In C Major, K 465, Dissonance - IV. Allegro Volto",
+    artist: "Wolfgang Amadeus Mozart"
+  },
+  {
+    file: "IV. Double Presto.mp3",
+    songName: "Partita for Violin Solo No. 1 in B Minor, BWV 1002 - 4. Double (Presto).",
+    artist: "Johann Sebastian Bach"
+  },
+  {
+    file: "Lyric Pieces, Op. 12 - I. Arietta.mp3",
+    songName: "Lyric Pieces Book I, Op.12 - 1. Arietta",
+    artist: "Edvard Grieg"
+  },
+  {
+    file: "Variations Brillantes, Op. 12.mp3",
+    songName: "Variations Brillantes, Op. 12",
+    artist: "Frédéric Chopin"
+  },
+  {
+    file: "Violin Concerto no. 1 in E flat major, Op. 6 -  I. Allegro maestoso.mp3",
+    songName: "Violin Concerto no. 1 in E flat major, Op. 6 - I. Allegro maestoso",
+    artist: "Niccolò Paganini"
+  }
+];
+
 /* ========= Utility Functions ========= */
 
 // Format time (in seconds) to mm:ss
@@ -13,9 +43,9 @@ function formatTime(time) {
   return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 }
 
-// Strip hash from file name
-const getCleanFileName = (path) => {
-  let fileName = path.split("/").pop();
+// Strip hash from file name (if present) and remove a trailing ".mp3" (case-insensitive)
+const getCleanFileName = (file) => {
+  let fileName = file;
   const parts = fileName.split(".");
   if (parts.length >= 3) {
     const potentialHash = parts[parts.length - 2];
@@ -24,12 +54,24 @@ const getCleanFileName = (path) => {
       fileName = parts.join(".");
     }
   }
+  // Remove a trailing .mp3 extension (case-insensitive)
+  fileName = fileName.replace(/\.mp3$/i, "");
   return fileName;
 };
 
+// Utility function to shuffle an array
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 /* ========= 3D Components ========= */
 
-// A rotating cube that maps the album image as its texture
+// A rotating cube that maps the album image as its texture.
 // Now only rotates on the horizontal (Y) axis.
 function RotatingAlbumCube({ imgPath }) {
   const texture = useLoader(TextureLoader, imgPath);
@@ -46,8 +88,6 @@ function RotatingAlbumCube({ imgPath }) {
     </mesh>
   );
 }
-
-// Removed RotatingTorus component
 
 // Full-screen animated background canvas (updated to remove the torus)
 function CoolBackground() {
@@ -67,7 +107,6 @@ function CoolBackground() {
     >
       <ambientLight intensity={0.5} />
       <directionalLight position={[0, 0, 5]} intensity={1} />
-      {/* RotatingTorus removed */}
     </Canvas>
   );
 }
@@ -119,9 +158,13 @@ function PlaylistBackground() {
 /* ========= Main MusicPlayer Component ========= */
 
 function MusicPlayer() {
-  const defaultImgPath = "/IMG_4649.jpeg"; // Your album art image path
+  // Fallback album art in case no random image is available.
+  const defaultImgPath = "/IMG_4649.jpeg";
 
-  const [songs, setSongs] = useState([]);
+  // Instead of loading songs via require.context, we now use our JSON data.
+  const [songs, setSongs] = useState(songsData);
+  const [songAlbumArts, setSongAlbumArts] = useState([]);
+  const [albumArts, setAlbumArts] = useState([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
@@ -129,14 +172,32 @@ function MusicPlayer() {
   const [isShuffle, setIsShuffle] = useState(false);
   const audioRef = useRef(null);
 
-  // Load songs from the public/songs folder
+  // Load album art images from your album art folder ("../photo-gallery/")
   useEffect(() => {
     const importAll = (r) => r.keys().map(r);
-    const songFiles = importAll(
-      require.context("../../public/songs/", false, /\.(mp3|wav|ogg|flac|aac|m4a)$/)
+    const arts = importAll(
+      require.context("../photo-gallery/", false, /\.(png|jpe?g|svg)$/)
     );
-    setSongs(songFiles);
+    setAlbumArts(arts);
   }, []);
+
+  // Once songs and albumArts are loaded, assign each song a random album art without repeats.
+  useEffect(() => {
+    if (songs.length > 0 && albumArts.length > 0) {
+      const assignedArts = [];
+      let availableArts = shuffleArray(albumArts);
+      
+      for (let i = 0; i < songs.length; i++) {
+        // If we've used all available arts, reshuffle the albumArts array.
+        if (availableArts.length === 0) {
+          availableArts = shuffleArray(albumArts);
+        }
+        // Pop one from the available arts
+        assignedArts.push(availableArts.pop());
+      }
+      setSongAlbumArts(assignedArts);
+    }
+  }, [songs, albumArts]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -227,6 +288,13 @@ function MusicPlayer() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [nextSong, prevSong, playSong, pauseSong, isPlaying]);
 
+  // Automatically play the song when songs are loaded (i.e. on component mount)
+  useEffect(() => {
+    if (songs.length > 0) {
+      playSong();
+    }
+  }, [songs, playSong]);
+
   useEffect(() => {
     if (isPlaying) {
       playSong();
@@ -237,6 +305,13 @@ function MusicPlayer() {
     audioRef.current && audioRef.current.duration
       ? (currentTime / audioRef.current.duration) * 100
       : 0;
+
+  // Use the assigned random album art for the current song or fallback to default.
+  const currentAlbumArt =
+    songAlbumArts[currentSongIndex] || defaultImgPath;
+
+  // Build the full path for the song file (assuming your songs are stored in "../../public/songs/")
+  const getSongSrc = (songFile) => `/songs/${songFile}`;
 
   return (
     <div className="music-player-container">
@@ -258,14 +333,11 @@ function MusicPlayer() {
             >
               <ambientLight intensity={0.5} />
               <directionalLight position={[0, 0, 5]} intensity={1} />
-              <RotatingAlbumCube imgPath={defaultImgPath} />
+              <RotatingAlbumCube imgPath={currentAlbumArt} />
             </Canvas>
             <div className="song-info">
-              <h2>
-                {songs[currentSongIndex] &&
-                  getCleanFileName(songs[currentSongIndex])}
-              </h2>
-              <p>Artist Name</p>
+              <h2>{songs[currentSongIndex]?.songName}</h2>
+              <p>{songs[currentSongIndex]?.artist}</p>
             </div>
             <div className="progress-bar-container">
               <div className="progress-bar-wrapper">
@@ -318,7 +390,7 @@ function MusicPlayer() {
                     style={{ width: "48px", height: "48px", flexShrink: 0 }}
                   >
                     <img
-                      src={defaultImgPath}
+                      src={songAlbumArts[index] || defaultImgPath}
                       alt="Album"
                       style={{
                         width: "100%",
@@ -328,8 +400,8 @@ function MusicPlayer() {
                     />
                   </div>
                   <div className="playlist-song-info">
-                    <p>{getCleanFileName(song)}</p>
-                    <p className="artist">Artist Name</p>
+                    <p>{getCleanFileName(song.file)}</p>
+                    <p className="artist">{song.artist}</p>
                   </div>
                 </motion.div>
               ))}
@@ -409,7 +481,7 @@ function MusicPlayer() {
         {/* Hidden Audio Element */}
         <audio
           ref={audioRef}
-          src={songs[currentSongIndex]}
+          src={getSongSrc(songs[currentSongIndex]?.file)}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
         />
@@ -419,4 +491,3 @@ function MusicPlayer() {
 }
 
 export default MusicPlayer;
-

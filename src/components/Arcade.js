@@ -3,6 +3,9 @@ import Gallery from './Gallery.js';
 import Chess from './Chess/ChessGame.js';
 import CarRoom from './CarRoom.js';
 import MusicPlayer from './MusicPlayer.js';
+import { IconButton } from '@mui/material';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 
 function Arcade() {
   // Array of subcomponents with a display name for each
@@ -15,6 +18,9 @@ function Arcade() {
 
   // Track the active subcomponent index
   const [activeIndex, setActiveIndex] = useState(0);
+  
+  // State to toggle the visibility of the content
+  const [showContent, setShowContent] = useState(false);
 
   // Function to slide to the previous component (wrap around to the end)
   const handlePrev = () => {
@@ -33,39 +39,47 @@ function Arcade() {
   return (
     <div
       className="arcade"
-      style={{paddingTop:'30px', 
-      }}
+      style={{  alignItems: 'center', justifyContent: 'center', }}
     >
-      {/* Frame that holds the active component */}
+      <h1 style={{ textAlign: 'center', paddingBottom: '10px' }}>Arcade</h1>
+      {/* Button to toggle the rest of the content */}
       <div
-        style={{
-        }}
+        className="button"
+        style={{ width: '150px', textAlign: 'center', margin: '20px auto' }}
+        onClick={() => setShowContent(!showContent)}
       >
-        <h1 style={{textAlign: 'center', paddingBottom: '30px'}}>Arcade</h1>
-        {/* Row with sliders and title */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '20px',
-            gap: '30px'
-          }}
-        >
-          <button onClick={handlePrev} style={{ fontSize: '1.5rem', marginRight: '10px' }}>
-            ◀
-          </button>
-          <p style={{ margin: '0 10px' }}>{subcomponents[activeIndex].name}</p>
-          <button onClick={handleNext} style={{ fontSize: '1.5rem', marginLeft: '10px' }}>
-            ▶
-          </button>
-        </div>
-
-        {/* Active Component */}
-        <div style={{ textAlign: 'center' }}>
-          {subcomponents[activeIndex].component}
-        </div>
+        {showContent ? 'Quit Arcade' : 'Enter Arcade'}
       </div>
+
+      {showContent && (
+        <div>
+          {/* Row with sliders and title */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px',
+              gap: '30px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px' }}>
+              <IconButton onClick={handlePrev} size="large" style={{color:"white"}}>
+                <ArrowBackIosNewIcon />
+              </IconButton>
+              <p style={{ margin: '0 10px' }}>{subcomponents[activeIndex].name}</p>
+              <IconButton onClick={handleNext} size="large" style={{color:"white"}}>
+                <ArrowForwardIosIcon />
+              </IconButton>
+            </div>
+          </div>
+
+          {/* Active Component */}
+          <div style={{ }}>
+            {subcomponents[activeIndex].component}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

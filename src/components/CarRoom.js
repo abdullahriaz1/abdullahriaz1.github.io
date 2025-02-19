@@ -5,9 +5,10 @@ import React, {
   useLayoutEffect,
   useRef,
   useCallback,
+  Suspense,
 } from "react";
 import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
-import { useGLTF, Text } from "@react-three/drei";
+import { useGLTF, Text, Html, useProgress } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { ParametricGeometry } from "three/examples/jsm/geometries/ParametricGeometry";
@@ -22,6 +23,31 @@ const computeModelCenter = (object) => {
   return center;
 };
 
+// -----------------------------------------------------------------------------
+// Loader Component for Suspense fallback
+function LoadingOverlay() {
+  const { progress } = useProgress();
+  return (
+    <Html center>
+      <div style={loaderStyles}>
+        <img src="/spinner2.gif" style={{ width: 50, height: 50 }} />
+        <p style={{ fontSize: "10px", marginTop: 10, color: "white"}}>
+          Loading {progress.toFixed(0)}%
+        </p>
+      </div>
+    </Html>
+  );
+}
+
+const loaderStyles = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  textAlign: "center"
+};
+
+// -----------------------------------------------------------------------------
+// BackgroundSheet Component
 function BackgroundSheet({ xOffset = 0, yOffset = -20, zOffset = 29 }) {
   const texture = useLoader(THREE.TextureLoader, backgroundImage);
 
@@ -56,6 +82,8 @@ function BackgroundSheet({ xOffset = 0, yOffset = -20, zOffset = 29 }) {
   );
 }
 
+// -----------------------------------------------------------------------------
+// CarModel Component
 function CarModel({
   url,
   scale,
@@ -123,6 +151,8 @@ function CarModel({
   );
 }
 
+// -----------------------------------------------------------------------------
+// CarLabels Component
 function CarLabels({ cars }) {
   return cars.map((car) => {
     const row = car.row ? -1 : 1;
@@ -142,6 +172,8 @@ function CarLabels({ cars }) {
   });
 }
 
+// -----------------------------------------------------------------------------
+// Showroom Component
 function Showroom() {
   const { scene } = useGLTF("/3d-assets/studio_v1_for_car/scene.gltf");
 
@@ -167,6 +199,8 @@ function Showroom() {
   return <primitive object={scene} scale={2} />;
 }
 
+// -----------------------------------------------------------------------------
+// CarControlPanel Component
 const CarControlPanel = React.memo(({ car, updateCar, resetCar }) => {
   return (
     <div style={{ flex: 1, border: "1px solid white", padding: "10px" }}>
@@ -275,6 +309,8 @@ const CarControlPanel = React.memo(({ car, updateCar, resetCar }) => {
   );
 });
 
+// -----------------------------------------------------------------------------
+// FirstPersonMovement Component
 function FirstPersonMovement({ speed = 12, bounds }) {
   const { camera } = useThree();
   const keys = useRef({});
@@ -320,20 +356,18 @@ function FirstPersonMovement({ speed = 12, bounds }) {
   return null;
 }
 
+// -----------------------------------------------------------------------------
+// CameraTracker Component
 function CameraTracker({ setCameraPosition }) {
   const { camera } = useThree();
   useFrame(() => {
-    setCameraPosition([
-      camera.position.x,
-      camera.position.y,
-      camera.position.z,
-    ]);
+    setCameraPosition([camera.position.x, camera.position.y, camera.position.z]);
   });
   return null;
 }
 
 // -----------------------------------------------------------------------------
-// CustomMouseLook: Uses pointer lock and sums mouse movement deltas.
+// CustomMouseLook Component: Uses pointer lock and sums mouse movement deltas.
 function CustomMouseLook({ sensitivity = 0.005 }) {
   const { camera, gl } = useThree();
   const yawRef = useRef(0); // left/right rotation
@@ -375,6 +409,8 @@ function CustomMouseLook({ sensitivity = 0.005 }) {
   return null;
 }
 
+// -----------------------------------------------------------------------------
+// Main CarRoom Component
 function CarRoom() {
   const commonPreset = useMemo(
     () => ({
@@ -387,7 +423,7 @@ function CarRoom() {
     []
   );
 
-  const rowXPositions = useMemo(() => [-4, 3], []);
+  const rowXPositions = useMemo(() => [-4.5, 2.5], []);
   const zSpacing = 6;
 
   const carsConfig = useMemo(
@@ -579,8 +615,8 @@ function CarRoom() {
   const studioBounds = useMemo(
     () =>
       new THREE.Box3(
-        new THREE.Vector3(-15, -10, -19),
-        new THREE.Vector3(15, 10, 100)
+        new THREE.Vector3(-7, -10, -19),
+        new THREE.Vector3(5, 10, 30)
       ),
     []
   );
@@ -641,35 +677,38 @@ function CarRoom() {
           camera={{ position: [0, 1.5, 28], fov: 70 }}
           gl={{ toneMapping: THREE.NoToneMapping, localClippingEnabled: true }}
         >
-          <CustomMouseLook />
-          <BackgroundSheet />
-          <ambientLight intensity={brightness} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <Showroom />
-          {cars.map((car) => (
-            <CarModel
-              key={car.id}
-              url={car.url}
-              scale={car.baseScale * (car.scaleMultiplier || 1)}
-              position={car.position}
-              rotation={car.rotation}
-              emissiveIntensity={car.emissiveIntensity}
-              emissiveColor={car.emissiveColor}
-              onCarClick={() => setActiveCar(car.id)}
-              onLoadCenter={(center) => updateCar(car.id, { center })}
-              rotationSpeed={car.row === 0 ? 0.5 : -0.5}
-            />
-          ))}
-          <CarLabels cars={cars} />
-          <FirstPersonMovement speed={5} bounds={studioBounds} />
-          <CameraTracker setCameraPosition={setCameraPosition} />
-          <EffectComposer>
-            <Bloom
-              luminanceThreshold={luminanceThreshold}
-              luminanceSmoothing={luminanceSmoothing}
-              intensity={bloomIntensity}
-            />
-          </EffectComposer>
+          {/* Wrap Canvas children with Suspense and use our LoadingOverlay as fallback */}
+          <Suspense fallback={<LoadingOverlay />}>
+            <CustomMouseLook />
+            <BackgroundSheet />
+            <ambientLight intensity={brightness} />
+            <directionalLight position={[5, 5, 5]} intensity={1} />
+            <Showroom />
+            {cars.map((car) => (
+              <CarModel
+                key={car.id}
+                url={car.url}
+                scale={car.baseScale * (car.scaleMultiplier || 1)}
+                position={car.position}
+                rotation={car.rotation}
+                emissiveIntensity={car.emissiveIntensity}
+                emissiveColor={car.emissiveColor}
+                onCarClick={() => setActiveCar(car.id)}
+                onLoadCenter={(center) => updateCar(car.id, { center })}
+                rotationSpeed={car.row === 0 ? 0.5 : -0.5}
+              />
+            ))}
+            <CarLabels cars={cars} />
+            <FirstPersonMovement speed={5} bounds={studioBounds} />
+            <CameraTracker setCameraPosition={setCameraPosition} />
+            <EffectComposer>
+              <Bloom
+                luminanceThreshold={luminanceThreshold}
+                luminanceSmoothing={luminanceSmoothing}
+                intensity={bloomIntensity}
+              />
+            </EffectComposer>
+          </Suspense>
         </Canvas>
       </div>
 
