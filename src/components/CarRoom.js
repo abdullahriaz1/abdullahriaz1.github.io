@@ -674,7 +674,7 @@ function CarRoom() {
       >
         <Canvas
           style={{ width: "100%", height: "100%", background: "black" }}
-          camera={{ position: [0, 1.5, 28], fov: 70 }}
+          camera={{ position: [-1, 1.5, 28], fov: 70 }}
           gl={{ toneMapping: THREE.NoToneMapping, localClippingEnabled: true }}
         >
           {/* Wrap Canvas children with Suspense and use our LoadingOverlay as fallback */}
