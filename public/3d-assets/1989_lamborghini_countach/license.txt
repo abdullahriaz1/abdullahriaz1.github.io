@@ -1,0 +1,11 @@
+Model Information:
+* title:	1989 Lamborghini Countach
+* source:	https://sketchfab.com/3d-models/1989-lamborghini-countach-525b7214f99247758f6532e4e8f79605
+* author:	SINNIK (https://sketchfab.com/sinnik)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "1989 Lamborghini Countach" (https://sketchfab.com/3d-models/1989-lamborghini-countach-525b7214f99247758f6532e4e8f79605) by SINNIK (https://sketchfab.com/sinnik) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
